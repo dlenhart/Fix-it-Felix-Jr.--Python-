@@ -3,7 +3,7 @@ from constants import (GAME_WIDTH, GAME_HEIGHT, DISPLAY_WIDTH, DISPLAY_HEIGHT,
                        RENDER_FPS, TICK_RATE, BLACK, WHITE)
 from scene_manager import SceneManager, Scene
 from input_handler import InputHandler, Action
-from scenes.game_scene import GameScene
+from scenes.title_scene import TitleScene
 
 
 def main():
@@ -16,7 +16,7 @@ def main():
     game_surface = pygame.Surface((GAME_WIDTH, GAME_HEIGHT))
 
     scene_manager = SceneManager()
-    scene_manager.push(GameScene(scene_manager))
+    scene_manager.push(TitleScene(scene_manager))
 
     input_handler = InputHandler()
 
