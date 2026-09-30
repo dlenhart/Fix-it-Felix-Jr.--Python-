@@ -10,6 +10,8 @@ class Brick:
     def __init__(self, x, y, fall_speed, drift=0.0):
         self.x = float(x)
         self.y = float(y)
+        self._prev_x = self.x
+        self._prev_y = self.y
         self.fall_speed = fall_speed
         self.drift = drift
         self.width = 16
@@ -17,6 +19,8 @@ class Brick:
         self.active = True
 
     def tick(self):
+        self._prev_x = self.x
+        self._prev_y = self.y
         self.y -= self.fall_speed
         self.x += self.drift
         if self.y > 340:
@@ -41,10 +45,12 @@ class Brick:
                 fy < self.y + self.height and
                 fy + WINDOW_HEIGHT > self.y)
 
-    def draw(self, screen, sprite_sheet, palette):
+    def draw(self, screen, sprite_sheet, palette, alpha=1.0):
+        render_x = self._prev_x + (self.x - self._prev_x) * alpha
+        render_y = self._prev_y + (self.y - self._prev_y) * alpha
         try:
             sprite = sprite_sheet.get_sprite("brick_falling", 0, palette)
-            screen.blit(sprite, (int(self.x), int(self.y)))
+            screen.blit(sprite, (int(render_x), int(render_y)))
         except (KeyError, IndexError):
             pygame.draw.rect(screen, (139, 90, 43),
-                (int(self.x), int(self.y), self.width, self.height))
+                (int(render_x), int(render_y), self.width, self.height))

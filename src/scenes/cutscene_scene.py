@@ -52,7 +52,7 @@ class CutsceneScene(Scene):
         from scenes.game_scene import GameScene
         self.manager.replace(GameScene(self.manager))
 
-    def draw(self, screen):
+    def draw(self, screen, alpha=1.0):
         screen.fill(SKY_BLUE)
 
         if self._step >= len(CUTSCENE_STEPS):

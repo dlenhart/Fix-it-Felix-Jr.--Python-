@@ -55,7 +55,7 @@ class LevelClearScene(Scene):
         game.felix.score = self.score
         self.manager.replace(game)
 
-    def draw(self, screen):
+    def draw(self, screen, alpha=1.0):
         screen.fill(BLACK)
 
         clear_text = self.font.render_text("LEVEL CLEAR!", color_row=0)

@@ -96,7 +96,7 @@ class HighScoreScene(Scene):
         self.scores = self.scores[:MAX_SCORES]
         save_scores(self.scores)
 
-    def draw(self, screen):
+    def draw(self, screen, alpha=1.0):
         screen.fill(BLACK)
 
         header = self.font.render_text("HIGH SCORES", color_row=0)

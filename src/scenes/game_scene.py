@@ -171,7 +171,7 @@ class GameScene(Scene):
         from scenes.game_over_scene import GameOverScene
         self.manager.replace(GameOverScene(self.manager, self.felix.score))
 
-    def draw(self, screen):
+    def draw(self, screen, alpha=1.0):
         screen.fill(SKY_BLUE)
         self.building.draw(screen, self.sprites, self.palette)
 
@@ -179,13 +179,13 @@ class GameScene(Scene):
             self.pie.draw(screen, self.sprites, self.palette)
 
         for brick in self.bricks:
-            brick.draw(screen, self.sprites, self.palette)
+            brick.draw(screen, self.sprites, self.palette, alpha)
 
         for bird in self.birds:
-            bird.draw(screen, self.sprites, self.palette)
+            bird.draw(screen, self.sprites, self.palette, alpha)
 
         self.ralph.draw(screen, self.sprites, self.palette)
-        self.felix.draw(screen, self.sprites, self.palette, self.building)
+        self.felix.draw(screen, self.sprites, self.palette, self.building, alpha)
 
         self._draw_hud(screen)
 

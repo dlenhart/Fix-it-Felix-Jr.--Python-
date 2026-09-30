@@ -25,7 +25,7 @@ class GameOverScene(Scene):
             from scenes.high_score_scene import HighScoreScene
             self.manager.replace(HighScoreScene(self.manager, self.final_score))
 
-    def draw(self, screen):
+    def draw(self, screen, alpha=1.0):
         screen.fill(BLACK)
 
         game_over = self.font.render_text("GAME OVER", color_row=0)

@@ -43,8 +43,13 @@ def main():
 
         pygame.display.set_caption(f"Fix-It Felix Jr.")
 
+        # How far we are into the next pending tick (0..1) — lets entities
+        # interpolate their rendered position for smooth 60fps motion even
+        # though game logic only advances once per 250ms tick.
+        alpha = tick_accumulator / TICK_RATE
+
         # Render at 60fps to internal surface, then scale up
-        scene_manager.draw(game_surface)
+        scene_manager.draw(game_surface, alpha)
         scaled = pygame.transform.scale(game_surface, (DISPLAY_WIDTH, DISPLAY_HEIGHT))
         display.blit(scaled, (0, 0))
         pygame.display.flip()

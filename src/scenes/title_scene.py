@@ -36,7 +36,7 @@ class TitleScene(Scene):
             self._blink_ticks = 0
             self._show_press_start = not self._show_press_start
 
-    def draw(self, screen):
+    def draw(self, screen, alpha=1.0):
         screen.fill(BLACK)
 
         # All coordinates in 240x320 internal space — no scaling needed

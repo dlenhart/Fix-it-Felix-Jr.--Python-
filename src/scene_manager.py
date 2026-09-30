@@ -6,8 +6,13 @@ class Scene:
         """Called once per game tick (every 250ms). All game logic goes here."""
         pass
 
-    def draw(self, screen):
-        """Called every render frame (60fps). Only drawing, no logic."""
+    def draw(self, screen, alpha=1.0):
+        """Called every render frame (60fps). Only drawing, no logic.
+
+        alpha is how far we are between the last completed game tick and
+        the next one (0..1) — entities use it to interpolate their
+        rendered position for smooth motion despite the slower tick rate.
+        """
         pass
 
     def on_enter(self):
@@ -49,6 +54,6 @@ class SceneManager:
         if self.current:
             self.current.tick(input_handler)
 
-    def draw(self, screen):
+    def draw(self, screen, alpha=1.0):
         if self.current:
-            self.current.draw(screen)
+            self.current.draw(screen, alpha)

@@ -38,6 +38,8 @@ class Felix:
 
         self._pos_x = 0.0
         self._pos_y = 0.0
+        self._prev_pos_x = 0.0
+        self._prev_pos_y = 0.0
         self._vel_x = 0.0
         self._vel_y = 0.0
         self._target_x = 0.0
@@ -96,6 +98,11 @@ class Felix:
 
     def tick(self, input_handler, building, sound=None):
         self._init_pos(building)
+        # Snapshot position at the start of this tick so draw() can
+        # interpolate toward wherever this tick's movement ends up,
+        # smoothing motion across the ~15 render frames between ticks.
+        self._prev_pos_x = self._pos_x
+        self._prev_pos_y = self._pos_y
         self._anim_frame = (self._anim_frame + 1) % 4
 
         if self.is_super:
@@ -291,12 +298,14 @@ class Felix:
         self._pos_x = float(px)
         self._pos_y = float(py)
 
-    def get_pixel_pos(self, building):
+    def get_pixel_pos(self, building, alpha=1.0):
         self._init_pos(building)
-        return int(self._pos_x), int(self._pos_y)
+        x = self._prev_pos_x + (self._pos_x - self._prev_pos_x) * alpha
+        y = self._prev_pos_y + (self._pos_y - self._prev_pos_y) * alpha
+        return int(x), int(y)
 
-    def draw(self, screen, sprite_sheet, palette, building):
-        px, py = self.get_pixel_pos(building)
+    def draw(self, screen, sprite_sheet, palette, building, alpha=1.0):
+        px, py = self.get_pixel_pos(building, alpha)
 
         sprite_name = "felix_idle_right"
         frame = 0
