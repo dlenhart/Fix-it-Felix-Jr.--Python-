@@ -3,28 +3,7 @@ from constants import (GAME_WIDTH, GAME_HEIGHT, DISPLAY_WIDTH, DISPLAY_HEIGHT,
                        RENDER_FPS, TICK_RATE, BLACK, WHITE)
 from scene_manager import SceneManager, Scene
 from input_handler import InputHandler, Action
-
-
-class PlaceholderScene(Scene):
-    def __init__(self, manager):
-        super().__init__(manager)
-        from sprite_sheet import SpriteSheet
-        from font_renderer import FontRenderer
-        self.sprites = SpriteSheet()
-        self.font = FontRenderer(self.sprites)
-
-    def on_enter(self):
-        from sound_manager import SoundManager
-        self.sound = SoundManager()
-        self.sound.play_music("title")
-
-    def draw(self, screen):
-        screen.fill(BLACK)
-        text_surface = self.font.render_text("FIX-IT FELIX JR", color_row=0)
-        scaled = pygame.transform.scale(text_surface,
-            (text_surface.get_width() * 3, text_surface.get_height() * 3))
-        rect = scaled.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2))
-        screen.blit(scaled, rect)
+from scenes.game_scene import GameScene
 
 
 def main():
@@ -37,7 +16,7 @@ def main():
     game_surface = pygame.Surface((GAME_WIDTH, GAME_HEIGHT))
 
     scene_manager = SceneManager()
-    scene_manager.push(PlaceholderScene(scene_manager))
+    scene_manager.push(GameScene(scene_manager))
 
     input_handler = InputHandler()
 
