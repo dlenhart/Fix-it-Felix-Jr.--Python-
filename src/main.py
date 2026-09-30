@@ -13,6 +13,11 @@ class PlaceholderScene(Scene):
         self.sprites = SpriteSheet()
         self.font = FontRenderer(self.sprites)
 
+    def on_enter(self):
+        from sound_manager import SoundManager
+        self.sound = SoundManager()
+        self.sound.play_music("title")
+
     def draw(self, screen):
         screen.fill(BLACK)
         text_surface = self.font.render_text("FIX-IT FELIX JR", color_row=0)
