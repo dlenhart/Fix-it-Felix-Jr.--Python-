@@ -8,13 +8,18 @@ from input_handler import InputHandler, Action
 class PlaceholderScene(Scene):
     def __init__(self, manager):
         super().__init__(manager)
-        self.font = pygame.font.SysFont("monospace", 8)
+        from sprite_sheet import SpriteSheet
+        self.sprites = SpriteSheet()
 
     def draw(self, screen):
         screen.fill(BLACK)
-        text = self.font.render("FIX-IT FELIX JR", True, WHITE)
-        rect = text.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2))
-        screen.blit(text, rect)
+        try:
+            building = self.sprites.get_sprite("wall_brick", 0, 0)
+            screen.blit(building, (50, 50))
+        except (KeyError, IndexError) as e:
+            font = pygame.font.SysFont("monospace", 16)
+            text = font.render(str(e), True, WHITE)
+            screen.blit(text, (10, 10))
 
 
 def main():
