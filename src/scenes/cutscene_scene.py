@@ -4,7 +4,7 @@ from constants import GAME_WIDTH, GAME_HEIGHT, BLACK, SKY_BLUE
 from input_handler import Action
 from sprite_sheet import SpriteSheet
 from sound_manager import SoundManager
-from font_renderer import FontRenderer
+from font_renderer import FontRenderer, scale_text_to_fit
 
 
 # duration_ticks values are real-second durations from the design converted
@@ -72,7 +72,6 @@ class CutsceneScene(Scene):
 
         if step["text"]:
             text = self.font.render_text(step["text"], color_row=0)
-            scaled = pygame.transform.scale(text,
-                (text.get_width() * 2, text.get_height() * 2))
+            scaled = scale_text_to_fit(text, GAME_WIDTH - 16, preferred_scale=2.0)
             rect = scaled.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2 + 80))
             screen.blit(scaled, rect)

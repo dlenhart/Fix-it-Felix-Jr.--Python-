@@ -3,7 +3,7 @@ from scene_manager import Scene
 from constants import GAME_WIDTH, GAME_HEIGHT, BLACK
 from sprite_sheet import SpriteSheet
 from sound_manager import SoundManager
-from font_renderer import FontRenderer
+from font_renderer import FontRenderer, scale_text_to_fit
 
 
 class GameOverScene(Scene):
@@ -29,13 +29,11 @@ class GameOverScene(Scene):
         screen.fill(BLACK)
 
         game_over = self.font.render_text("GAME OVER", color_row=0)
-        scaled = pygame.transform.scale(game_over,
-            (game_over.get_width() * 4, game_over.get_height() * 4))
+        scaled = scale_text_to_fit(game_over, GAME_WIDTH - 16, preferred_scale=4.0)
         rect = scaled.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2 - 30))
         screen.blit(scaled, rect)
 
         score = self.font.render_text(f"SCORE {self.final_score:06d}", color_row=1)
-        scaled_score = pygame.transform.scale(score,
-            (score.get_width() * 2, score.get_height() * 2))
+        scaled_score = scale_text_to_fit(score, GAME_WIDTH - 16, preferred_scale=2.0)
         rect = scaled_score.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2 + 40))
         screen.blit(scaled_score, rect)

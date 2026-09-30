@@ -4,7 +4,7 @@ from constants import GAME_WIDTH, GAME_HEIGHT, BLACK
 from input_handler import Action
 from sprite_sheet import SpriteSheet
 from sound_manager import SoundManager
-from font_renderer import FontRenderer
+from font_renderer import FontRenderer, scale_text_to_fit
 
 
 class LevelClearScene(Scene):
@@ -59,8 +59,7 @@ class LevelClearScene(Scene):
         screen.fill(BLACK)
 
         clear_text = self.font.render_text("LEVEL CLEAR!", color_row=0)
-        scaled = pygame.transform.scale(clear_text,
-            (clear_text.get_width() * 3, clear_text.get_height() * 3))
+        scaled = scale_text_to_fit(clear_text, GAME_WIDTH - 16, preferred_scale=3.0)
         rect = scaled.get_rect(center=(GAME_WIDTH // 2, 100))
         screen.blit(scaled, rect)
 
@@ -72,13 +71,11 @@ class LevelClearScene(Scene):
             screen.blit(medal_scaled, rect)
         except (KeyError, IndexError):
             medal_label = self.font.render_text(self._medal_label() + " MEDAL", color_row=1)
-            m_scaled = pygame.transform.scale(medal_label,
-                (medal_label.get_width() * 2, medal_label.get_height() * 2))
+            m_scaled = scale_text_to_fit(medal_label, GAME_WIDTH - 16, preferred_scale=2.0)
             rect = m_scaled.get_rect(center=(GAME_WIDTH // 2, 240))
             screen.blit(m_scaled, rect)
 
         score_text = self.font.render_text(f"SCORE {self.score:06d}", color_row=1)
-        s_scaled = pygame.transform.scale(score_text,
-            (score_text.get_width() * 2, score_text.get_height() * 2))
+        s_scaled = scale_text_to_fit(score_text, GAME_WIDTH - 16, preferred_scale=2.0)
         rect = s_scaled.get_rect(center=(GAME_WIDTH // 2, 350))
         screen.blit(s_scaled, rect)

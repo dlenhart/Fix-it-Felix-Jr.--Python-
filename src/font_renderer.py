@@ -37,3 +37,14 @@ class FontRenderer:
             if glyph:
                 surface.blit(glyph, (i * cw, 0))
         return surface
+
+
+def scale_text_to_fit(surface, max_width, preferred_scale=2.0):
+    """Scale a render_text() surface up by preferred_scale, but never wider
+    than max_width — a fixed scale factor on a long string can otherwise
+    overflow the 240px internal canvas and get clipped on both edges."""
+    width, height = surface.get_size()
+    scale = preferred_scale if width == 0 else min(preferred_scale, max_width / width)
+    new_width = max(1, int(width * scale))
+    new_height = max(1, int(height * scale))
+    return pygame.transform.scale(surface, (new_width, new_height))

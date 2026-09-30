@@ -5,7 +5,7 @@ from constants import GAME_WIDTH, GAME_HEIGHT, SKY_BLUE
 from input_handler import Action
 from sprite_sheet import SpriteSheet
 from sound_manager import SoundManager
-from font_renderer import FontRenderer
+from font_renderer import FontRenderer, scale_text_to_fit
 from entities.felix import Felix, FelixState
 from entities.ralph import Ralph, MAX_BRICKS
 from entities.building import Building, GRID_COLS
@@ -191,7 +191,7 @@ class GameScene(Scene):
 
         if self._is_section_clearing:
             text = self.font.render_text("YOU FIXED IT!", color_row=0)
-            scaled = pygame.transform.scale(text, (text.get_width() * 2, text.get_height() * 2))
+            scaled = scale_text_to_fit(text, GAME_WIDTH - 16, preferred_scale=2.0)
             rect = scaled.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2))
             screen.blit(scaled, rect)
 

@@ -6,7 +6,7 @@ from constants import GAME_WIDTH, GAME_HEIGHT, BLACK, PROJECT_ROOT
 from input_handler import Action
 from sprite_sheet import SpriteSheet
 from sound_manager import SoundManager
-from font_renderer import FontRenderer
+from font_renderer import FontRenderer, scale_text_to_fit
 
 SCORES_FILE = os.path.join(PROJECT_ROOT, "scores.dat")
 MAX_SCORES = 5                # Ghidra-confirmed: 5 entries
@@ -100,35 +100,32 @@ class HighScoreScene(Scene):
         screen.fill(BLACK)
 
         header = self.font.render_text("HIGH SCORES", color_row=0)
-        header_scaled = pygame.transform.scale(header,
-            (header.get_width() * 3, header.get_height() * 3))
+        header_scaled = scale_text_to_fit(header, GAME_WIDTH - 16, preferred_scale=3.0)
         rect = header_scaled.get_rect(center=(GAME_WIDTH // 2, 40))
         screen.blit(header_scaled, rect)
 
         if self._is_entering:
             prompt = self.font.render_text("ENTER YOUR INITIALS", color_row=1)
-            p_scaled = pygame.transform.scale(prompt,
-                (prompt.get_width() * 2, prompt.get_height() * 2))
+            p_scaled = scale_text_to_fit(prompt, GAME_WIDTH - 16, preferred_scale=2.0)
             rect = p_scaled.get_rect(center=(GAME_WIDTH // 2, 90))
             screen.blit(p_scaled, rect)
 
             initials_str = " ".join(self._initials)
             initials = self.font.render_text(initials_str, color_row=0)
-            i_scaled = pygame.transform.scale(initials,
-                (initials.get_width() * 3, initials.get_height() * 3))
+            i_scaled = scale_text_to_fit(initials, GAME_WIDTH - 16, preferred_scale=3.0)
             rect = i_scaled.get_rect(center=(GAME_WIDTH // 2, 130))
             screen.blit(i_scaled, rect)
 
         col_header = self.font.render_text("NAME      SCORE", color_row=1)
-        ch_scaled = pygame.transform.scale(col_header,
-            (col_header.get_width() * 2, col_header.get_height() * 2))
-        screen.blit(ch_scaled, (120, 170))
+        ch_scaled = scale_text_to_fit(col_header, GAME_WIDTH - 16, preferred_scale=2.0)
+        ch_rect = ch_scaled.get_rect(center=(GAME_WIDTH // 2, 170))
+        screen.blit(ch_scaled, ch_rect)
 
         for i, entry in enumerate(self.scores[:MAX_SCORES]):
             name = entry["name"].ljust(3)
             score_str = str(entry["score"]).rjust(8)
             line = f"{name}      {score_str}"
             text = self.font.render_text(line, color_row=0)
-            t_scaled = pygame.transform.scale(text,
-                (text.get_width() * 2, text.get_height() * 2))
-            screen.blit(t_scaled, (120, 200 + i * 24))
+            t_scaled = scale_text_to_fit(text, GAME_WIDTH - 16, preferred_scale=2.0)
+            t_rect = t_scaled.get_rect(center=(GAME_WIDTH // 2, 200 + i * 24))
+            screen.blit(t_scaled, t_rect)
