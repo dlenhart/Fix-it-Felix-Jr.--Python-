@@ -38,6 +38,7 @@ def main():
         # Fixed-step game logic at 250ms per tick (4 Hz)
         while tick_accumulator >= TICK_RATE:
             scene_manager.tick(input_handler)
+            input_handler.consume_just_pressed()
             tick_accumulator -= TICK_RATE
 
         pygame.display.set_caption(f"Fix-It Felix Jr.")

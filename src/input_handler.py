@@ -52,7 +52,12 @@ class InputHandler:
             self._joystick.init()
 
     def poll(self, events):
-        self._just_pressed.clear()
+        # poll() runs once per render frame (60fps), but game logic only
+        # consumes is_just_pressed() once per fixed-step tick (4Hz). A key
+        # transition lasts exactly one poll(), so without latching it here,
+        # the signal is almost always cleared before a tick ever sees it.
+        # just_pressed accumulates across polls until consume_just_pressed()
+        # is called once per tick.
         prev_pressed = self._pressed.copy()
         self._pressed.clear()
 
@@ -89,7 +94,11 @@ class InputHandler:
                 elif y_axis > AXIS_THRESHOLD:
                     self._pressed.add(Action.DOWN)
 
-        self._just_pressed = self._pressed - prev_pressed
+        self._just_pressed |= (self._pressed - prev_pressed)
+
+    def consume_just_pressed(self):
+        """Call once per game-logic tick, after it has read is_just_pressed()."""
+        self._just_pressed.clear()
 
     def is_pressed(self, action):
         return action in self._pressed
