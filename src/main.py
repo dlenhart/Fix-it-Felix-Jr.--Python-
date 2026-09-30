@@ -9,17 +9,17 @@ class PlaceholderScene(Scene):
     def __init__(self, manager):
         super().__init__(manager)
         from sprite_sheet import SpriteSheet
+        from font_renderer import FontRenderer
         self.sprites = SpriteSheet()
+        self.font = FontRenderer(self.sprites)
 
     def draw(self, screen):
         screen.fill(BLACK)
-        try:
-            building = self.sprites.get_sprite("wall_brick", 0, 0)
-            screen.blit(building, (50, 50))
-        except (KeyError, IndexError) as e:
-            font = pygame.font.SysFont("monospace", 16)
-            text = font.render(str(e), True, WHITE)
-            screen.blit(text, (10, 10))
+        text_surface = self.font.render_text("FIX-IT FELIX JR", color_row=0)
+        scaled = pygame.transform.scale(text_surface,
+            (text_surface.get_width() * 3, text_surface.get_height() * 3))
+        rect = scaled.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2))
+        screen.blit(scaled, rect)
 
 
 def main():
