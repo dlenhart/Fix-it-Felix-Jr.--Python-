@@ -33,7 +33,13 @@ WHITE = (255, 255, 255)
 SKY_BLUE = (92, 148, 252)
 
 # Movement & Physics (Ghidra pass 3 — all in px/tick in 240x320 space)
-FELIX_MAX_HORIZONTAL_SPEED = 2.0       # _DAT_00416b40
+# FELIX_MAX_HORIZONTAL_SPEED: Ghidra-confirmed original value was 2.0
+# (_DAT_00416b40), giving 20 ticks (5.0s) to cross one window at
+# WINDOW_SPACING_X=40. Playtesting found that too slow to feel good;
+# user explicitly chose to deviate from the historically-accurate value
+# for gameplay feel. 5.0 gives 8 ticks (2.0s) per window, close to
+# vertical movement's pace (FELIX_VERTICAL_MOVE_RATE below, ~2.25s/row).
+FELIX_MAX_HORIZONTAL_SPEED = 5.0       # tuned for feel — was 2.0 (_DAT_00416b40)
 FELIX_INITIAL_VERTICAL_VEL = 0.2       # _DAT_00416b88
 FELIX_JUMP_INITIAL_X_VEL = -5.0        # _DAT_00416c00
 FELIX_JUMP_ARC_DIVISOR = 10.0          # _DAT_00416c04
