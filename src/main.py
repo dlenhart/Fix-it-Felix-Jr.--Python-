@@ -40,6 +40,8 @@ def main():
             scene_manager.tick(input_handler)
             tick_accumulator -= TICK_RATE
 
+        pygame.display.set_caption(f"Fix-It Felix Jr.")
+
         # Render at 60fps to internal surface, then scale up
         scene_manager.draw(game_surface)
         scaled = pygame.transform.scale(game_surface, (DISPLAY_WIDTH, DISPLAY_HEIGHT))

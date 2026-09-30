@@ -7,7 +7,7 @@ from sprite_sheet import SpriteSheet
 from sound_manager import SoundManager
 from font_renderer import FontRenderer
 from entities.felix import Felix, FelixState
-from entities.ralph import Ralph
+from entities.ralph import Ralph, MAX_BRICKS
 from entities.building import Building, GRID_COLS
 from entities.brick import Brick
 from entities.bird import Bird
@@ -75,7 +75,9 @@ class GameScene(Scene):
         self.felix.tick(input_handler, self.building, self.sound)
 
         new_bricks = self.ralph.tick(self.felix, self.building, self.sound)
-        self.bricks.extend(new_bricks)
+        available_slots = MAX_BRICKS - len(self.bricks)
+        if available_slots > 0:
+            self.bricks.extend(new_bricks[:available_slots])
 
         for brick in self.bricks[:]:
             brick.tick()
