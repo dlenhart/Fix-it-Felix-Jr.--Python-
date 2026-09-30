@@ -40,7 +40,7 @@ SPRITES = {
     "pie": [(353, 238, 11, 9)],
 
     # UI elements
-    "title_logo": [(226, 114, 168, 58)],
+    "title_logo": [(226, 114, 184, 70)],
     "medal_bronze": [(517, 0, 57, 96)],
     "medal_silver": [(581, 0, 57, 96)],
     "medal_gold": [(645, 0, 57, 96)],

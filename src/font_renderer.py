@@ -10,7 +10,7 @@ class FontRenderer:
         self._build_char_map()
 
     def _build_char_map(self):
-        ascii_chars = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ/1"
+        ascii_chars = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         for row_idx, row_info in FONT_ROWS.items():
             atlas = self._sprite_sheet._get_atlas(self._palette)
             y = row_info["y"]
