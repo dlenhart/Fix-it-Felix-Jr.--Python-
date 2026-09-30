@@ -2,6 +2,7 @@ import pygame
 from constants import (GAME_WIDTH, GAME_HEIGHT, DISPLAY_WIDTH, DISPLAY_HEIGHT,
                        RENDER_FPS, TICK_RATE, BLACK, WHITE)
 from scene_manager import SceneManager, Scene
+from input_handler import InputHandler, Action
 
 
 class PlaceholderScene(Scene):
@@ -28,6 +29,8 @@ def main():
     scene_manager = SceneManager()
     scene_manager.push(PlaceholderScene(scene_manager))
 
+    input_handler = InputHandler()
+
     tick_accumulator = 0.0
     running = True
     while running:
@@ -38,12 +41,14 @@ def main():
         for event in events:
             if event.type == pygame.QUIT:
                 running = False
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                running = False
+
+        input_handler.poll(events)
+        if input_handler.is_just_pressed(Action.QUIT):
+            running = False
 
         # Fixed-step game logic at 250ms per tick (4 Hz)
         while tick_accumulator >= TICK_RATE:
-            scene_manager.tick(None)
+            scene_manager.tick(input_handler)
             tick_accumulator -= TICK_RATE
 
         # Render at 60fps to internal surface, then scale up
