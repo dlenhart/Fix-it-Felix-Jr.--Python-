@@ -1,5 +1,5 @@
 import pygame
-from entities.building import GRID_COLS, WINDOW_WIDTH, WINDOW_HEIGHT
+from entities.building import GRID_COLS, WINDOW_WIDTH, WINDOW_HEIGHT, WindowState
 
 
 BRICK_FALL_SPEEDS = [-1.8, -2.2, -1.7, -1.5]  # Ghidra pass 3: types A-D
@@ -30,6 +30,11 @@ class Brick:
     def check_window_collision(self, building):
         for row in range(building.current_rows):
             for col in range(GRID_COLS):
+                # A fully broken window has no glass left to stop a falling
+                # brick — it passes through to whatever's below, same as it
+                # would fall past an already-open window frame.
+                if building.get_window_state(col, row) == WindowState.BROKEN:
+                    continue
                 wx, wy = building.get_window_pixel_pos(col, row)
                 if (wx < self.x + self.width and
                     wx + WINDOW_WIDTH > self.x and

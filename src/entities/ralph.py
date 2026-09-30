@@ -54,7 +54,14 @@ class Ralph:
                 brick_x = GRID_LEFT + target_col * WINDOW_SPACING_X + 20
                 fall_speed = random.choice(BRICK_FALL_SPEEDS)
                 drift = random.uniform(-BRICK_DRIFT_SPEED, BRICK_DRIFT_SPEED)
-                brick = Brick(brick_x, self.y + 40, fall_speed, drift)
+                # Ralph's feet sit right at the roofline (his sprite height
+                # puts them at ~self.y+54, matching GRID_TOP=64) — spawning
+                # from his hands/chest (was +40, only ~14px above the window
+                # grid) left almost no visible fall before hitting the top
+                # row. Spawn from near his raised throwing arm instead, so
+                # every brick has real travel distance before it can hit
+                # anything.
+                brick = Brick(brick_x, self.y + 10, fall_speed, drift)
                 new_bricks.append(brick)
 
         return new_bricks
