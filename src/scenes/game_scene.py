@@ -158,9 +158,10 @@ class GameScene(Scene):
         self.birds.clear()
 
     def _advance_level(self):
-        self.level += 1
-        self._start_level()
-        self.sound.play_sfx("level_transition")
+        self.sound.stop_music()
+        from scenes.level_clear_scene import LevelClearScene
+        self.manager.replace(LevelClearScene(
+            self.manager, self.level, self.felix.score))
 
     def _game_over(self):
         self.sound.stop_music()

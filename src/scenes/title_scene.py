@@ -27,8 +27,8 @@ class TitleScene(Scene):
         if (input_handler.is_just_pressed(Action.START) or
                 input_handler.is_just_pressed(Action.JUMP)):
             self.sound.play_sfx("menu_confirm")
-            from scenes.game_scene import GameScene
-            self.manager.replace(GameScene(self.manager))
+            from scenes.cutscene_scene import CutsceneScene
+            self.manager.replace(CutsceneScene(self.manager))
             return
 
         self._blink_ticks += 1
