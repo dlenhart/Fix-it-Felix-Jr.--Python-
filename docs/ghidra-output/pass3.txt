@@ -1,0 +1,667 @@
+openjdk version "21.0.11" 2026-04-21
+OpenJDK Runtime Environment Homebrew (build 21.0.11)
+OpenJDK 64-Bit Server VM Homebrew (build 21.0.11, mixed mode)
+INFO  Using log config file: jar:file:/Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Framework/Generic/lib/Generic.jar!/generic.log4j.xml (LoggingInitialization)  
+INFO  Using log file: /Users/drewlenhart/Library/ghidra/ghidra_12.1.2_PUBLIC/application.log (LoggingInitialization)  
+INFO  Loading user preferences: /Users/drewlenhart/Library/ghidra/ghidra_12.1.2_PUBLIC/preferences (Preferences)  
+INFO  Searching for classes... (ClassSearcher)  
+INFO  Class search complete (856 ms) (ClassSearcher)  
+INFO  Initializing SSL Context (DefaultSSLContextInitializer)  
+INFO  Initializing Random Number Generator... (SecureRandomFactory)  
+INFO  Random Number Generator initialization complete: NativePRNGNonBlocking (SecureRandomFactory)  
+INFO  Trust manager disabled, cacerts have not been set (DefaultTrustManagerFactory)  
+INFO  Headless startup complete (1881 ms) (AnalyzeHeadless)  
+INFO  Class searcher loaded 59 extension points (20 false positives) (ClassSearcher)  
+INFO  HEADLESS Script Paths:
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/MicrosoftCodeAnalyzer/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Processors/JVM/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/DecompilerDependent/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/FunctionID/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/SystemEmulation/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Processors/DATA/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/WildcardAssembler/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/FileFormats/ghidra_scripts
+    /Users/drewlenhart/Desktop/current_programs/Fix-it/tools
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Debug/Debugger/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Processors/Atmel/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Processors/PIC/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Processors/8051/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/GnuDemangler/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/BSim/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/Base/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/Decompiler/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/SwiftDemangler/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Debug/Debugger-rmi-trace/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/BytePatterns/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/PyGhidra/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/PDB/ghidra_scripts
+    /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/VersionTracking/ghidra_scripts (HeadlessAnalyzer)  
+INFO  HEADLESS: execution starts (HeadlessAnalyzer)  
+INFO  Creating project: /tmp/ghidra_project/FixitFelix (HeadlessAnalyzer)  
+INFO  Creating project: /tmp/ghidra_project/FixitFelix (DefaultProject)  
+INFO  REPORT: Processing input files:  (HeadlessAnalyzer)  
+INFO       project: /tmp/ghidra_project/FixitFelix (HeadlessAnalyzer)  
+INFO  IMPORTING: file:///Users/drewlenhart/Desktop/current_programs/Fix-it/FixitFelixJr.exe (HeadlessAnalyzer)  
+INFO  Using Loader: Portable Executable (PE) (ProgramLoader)  
+INFO  Using Language/Compiler: x86:LE:32:default:windows (ProgramLoader)  
+INFO  Using Library Search Path: [., /System/Library/dyld/dyld_shared_cache_arm64e, /System/Library/dyld/dyld_shared_cache_x86_64, /System/Library/dyld/dyld_shared_cache_x86_64h, /System/Cryptexes/OS/System/Library/dyld/dyld_shared_cache_arm64e, /System/Cryptexes/OS/System/Library/dyld/dyld_shared_cache_x86_64, /System/Cryptexes/OS/System/Library/dyld/dyld_shared_cache_x86_64h, /Users/drewlenhart/Library/Java/Extensions, /Library/Java/Extensions, /Network/Library/Java/Extensions, /System/Library/Java/Extensions, /usr/lib/java] (ProgramLoader)  
+INFO  Removing 2 unused filesystems from cache (FileSystemInstanceManager)  
+INFO  Additional info:
+Loading file:///Users/drewlenhart/Desktop/current_programs/Fix-it/FixitFelixJr.exe?MD5=2bfc8fac7af8ddac15159f9a82b0f1e1...
+[FixitFelixJr.exe]: failed to create TerminatedCString at 00425058: Failed to resolve data length for TerminatedCString
+------------------------------------------------
+
+Searching 4 paths for library DDRAW.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 4 paths for library DSOUND.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 4 paths for library GDI32.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 4 paths for library GLU32.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 4 paths for library KERNEL32.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 4 paths for library MSVCR90.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 4 paths for library OPENGL32.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 4 paths for library USER32.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 4 paths for library WINMM.DLL...
+Library not found.
+------------------------------------------------
+
+Searching 4 paths for library WS2_32.DLL...
+Library not found.
+------------------------------------------------
+
+Linking the External Programs of 'FixitFelixJr.exe' to imported libraries...
+  [DSOUND.DLL] -> not found in project
+  [WS2_32.DLL] -> not found in project
+  [WINMM.DLL] -> not found in project
+  [DDRAW.DLL] -> not found in project
+  [KERNEL32.DLL] -> not found in project
+  [USER32.DLL] -> not found in project
+  [GDI32.DLL] -> not found in project
+  [MSVCR90.DLL] -> not found in project
+  [OPENGL32.DLL] -> not found in project
+  [GLU32.DLL] -> not found in project
+------------------------------------------------
+
+ (ProgramLoader)  
+INFO  IMPORTING: Loaded 0 additional files (HeadlessAnalyzer)  
+INFO  ANALYZING all memory and code: file:///Users/drewlenhart/Desktop/current_programs/Fix-it/FixitFelixJr.exe (HeadlessAnalyzer)  
+WARN  Ignoring leading '_' chars on no-return name '___raise_securityfailure' specified in file: /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/Base/data/PEFunctionsThatDoNotReturn (NoReturnFunctionAnalyzer)  
+WARN  Ignoring leading '_' chars on no-return name '___report_rangecheckfailure' specified in file: /Users/drewlenhart/ghidra/ghidra_12.1.2_PUBLIC/Ghidra/Features/Base/data/PEFunctionsThatDoNotReturn (NoReturnFunctionAnalyzer)  
+INFO  Skipping PDB processing: failed to locate PDB file in configured locations (PdbUniversalAnalyzer)  
+INFO  Use a script to set the PDB file location. I.e.,
+    PdbAnalyzer.setPdbFileOption(currentProgram, new File("/path/to/pdb/file.pdb")); or
+    PdbUniversalAnalyzer.setPdbFileOption(currentProgram, new File("/path/to/pdb/file.pdb"));
+Or set the symbol server search configuration using:    PdbPlugin.saveSymbolServerServiceConfig(...);
+ This must be done using a pre-script (prior to analysis). (PdbUniversalAnalyzer)  
+ERROR Invalid PNG data at 00418320 (PngDataType)  
+INFO  hit non-returning function, restarting decompiler switch analyzer later (DecompilerSwitchAnalyzer)  
+INFO  Packed database cache: /var/tmp/drewlenhart-ghidra/packed-db-cache (PackedDatabaseCache)  
+INFO  Applied data type archive: windows_vs12_32 (ApplyDataArchiveAnalyzer)  
+INFO  Applied data type archive: windows_vs12_32 (ApplyDataArchiveAnalyzer)  
+INFO  hit non-returning function, restarting decompiler switch analyzer later (DecompilerSwitchAnalyzer)  
+INFO  Applied data type archive: windows_vs12_32 (ApplyDataArchiveAnalyzer)  
+INFO  -----------------------------------------------------
+    ASCII Strings                              0.172 secs
+    Apply Data Archives                        0.544 secs
+    Call Convention ID                         0.003 secs
+    Call-Fixup Installer                       0.013 secs
+    Create Address Tables                      0.009 secs
+    Create Address Tables - One Time           0.034 secs
+    Create Function                            0.069 secs
+    Data Reference                             0.049 secs
+    Decompiler Parameter ID                    3.607 secs
+    Decompiler Switch Analysis                 4.036 secs
+    Decompiler Switch Analysis - One Time      1.504 secs
+    Demangler Microsoft                        0.011 secs
+    Disassemble                                0.066 secs
+    Disassemble Entry Points                   0.258 secs
+    Embedded Media                             0.005 secs
+    External Entry References                  0.000 secs
+    Function ID                                0.238 secs
+    Function Start Pre Search                  0.010 secs
+    Function Start Search                      0.035 secs
+    Function Start Search After Code           0.006 secs
+    Function Start Search After Data           0.076 secs
+    Non-Returning Functions - Discovered       0.025 secs
+    Non-Returning Functions - Known            0.006 secs
+    PDB Universal                              0.009 secs
+    Reference                                  0.081 secs
+    Scalar Operand References                  0.097 secs
+    Shared Return Calls                        0.041 secs
+    Stack                                      0.363 secs
+    Subroutine References                      0.089 secs
+    Subroutine References - One Time           0.004 secs
+    Windows x86 PE Exception Handling          0.005 secs
+    Windows x86 PE RTTI Analyzer               0.008 secs
+    Windows x86 Thread Environment Block (TEB) Analyzer     0.041 secs
+    WindowsResourceReference                   0.364 secs
+    X86 Function Callee Purge                  0.012 secs
+    x86 Constant Reference Analyzer            0.601 secs
+-----------------------------------------------------
+     Total Time   12 secs
+-----------------------------------------------------
+ (AutoAnalysisManager)  
+INFO  REPORT: Analysis succeeded for file: file:///Users/drewlenhart/Desktop/current_programs/Fix-it/FixitFelixJr.exe (HeadlessAnalyzer)  
+INFO  REPORT: Execute script: GhidraPass3.java  (HeadlessAnalyzer)  
+INFO  SCRIPT: /Users/drewlenhart/Desktop/current_programs/Fix-it/tools/GhidraPass3.java (HeadlessAnalyzer)  
+INFO  GhidraPass3.java> 
+
+======================================== (GhidraScript)  
+INFO  GhidraPass3.java> TARGET: LAB_0040b5e0 / FUN_0040b5e0 (GhidraScript)  
+INFO  GhidraPass3.java> PURPOSE: Felix state 0 update — idle behavior, input processing (GhidraScript)  
+INFO  GhidraPass3.java> ========================================
+ (GhidraScript)  
+INFO  GhidraPass3.java> [NO FUNCTION FOUND containing or at 0x0040b5e0] (GhidraScript)  
+INFO  GhidraPass3.java> Attempting to look up nearby functions... (GhidraScript)  
+INFO  GhidraPass3.java> Next function after target: FUN_0040bea0 at 0040bea0 (GhidraScript)  
+INFO  GhidraPass3.java> Prev function before target: FUN_0040b510 at 0040b510 (GhidraScript)  
+INFO  GhidraPass3.java> 
+
+======================================== (GhidraScript)  
+INFO  GhidraPass3.java> TARGET: LAB_0040b8e0 / FUN_0040b8e0 (GhidraScript)  
+INFO  GhidraPass3.java> PURPOSE: Felix state 1 update — walk speed, animation timing (GhidraScript)  
+INFO  GhidraPass3.java> ========================================
+ (GhidraScript)  
+INFO  GhidraPass3.java> [NO FUNCTION FOUND containing or at 0x0040b8e0] (GhidraScript)  
+INFO  GhidraPass3.java> Attempting to look up nearby functions... (GhidraScript)  
+INFO  GhidraPass3.java> Next function after target: FUN_0040bea0 at 0040bea0 (GhidraScript)  
+INFO  GhidraPass3.java> Prev function before target: FUN_0040b510 at 0040b510 (GhidraScript)  
+INFO  GhidraPass3.java> 
+
+======================================== (GhidraScript)  
+INFO  GhidraPass3.java> TARGET: LAB_0040b9f0 / FUN_0040b9f0 (GhidraScript)  
+INFO  GhidraPass3.java> PURPOSE: Felix state 3 update — walk (other direction) (GhidraScript)  
+INFO  GhidraPass3.java> ========================================
+ (GhidraScript)  
+INFO  GhidraPass3.java> [NO FUNCTION FOUND containing or at 0x0040b9f0] (GhidraScript)  
+INFO  GhidraPass3.java> Attempting to look up nearby functions... (GhidraScript)  
+INFO  GhidraPass3.java> Next function after target: FUN_0040bea0 at 0040bea0 (GhidraScript)  
+INFO  GhidraPass3.java> Prev function before target: FUN_0040b510 at 0040b510 (GhidraScript)  
+INFO  GhidraPass3.java> 
+
+======================================== (GhidraScript)  
+INFO  GhidraPass3.java> TARGET: LAB_0040bd90 / FUN_0040bd90 (GhidraScript)  
+INFO  GhidraPass3.java> PURPOSE: Felix state 4 update — MOVEMENT SPEED, jump trajectory (GhidraScript)  
+INFO  GhidraPass3.java> ========================================
+ (GhidraScript)  
+INFO  GhidraPass3.java> [NO FUNCTION FOUND containing or at 0x0040bd90] (GhidraScript)  
+INFO  GhidraPass3.java> Attempting to look up nearby functions... (GhidraScript)  
+INFO  GhidraPass3.java> Next function after target: FUN_0040bea0 at 0040bea0 (GhidraScript)  
+INFO  GhidraPass3.java> Prev function before target: FUN_0040b510 at 0040b510 (GhidraScript)  
+INFO  GhidraPass3.java> 
+
+======================================== (GhidraScript)  
+INFO  GhidraPass3.java> TARGET: LAB_0040bea0 / FUN_0040bea0 (GhidraScript)  
+INFO  GhidraPass3.java> PURPOSE: Felix state 5 update — HAMMER TIMING (GhidraScript)  
+INFO  GhidraPass3.java> ========================================
+ (GhidraScript)  
+INFO  GhidraPass3.java> CONTAINING FUNCTION: FUN_0040bea0 at 0040bea0 (GhidraScript)  
+INFO  GhidraPass3.java> SIZE: 422 bytes (GhidraScript)  
+INFO  GhidraPass3.java> ---
+ (GhidraScript)  
+INFO  GhidraPass3.java>  (GhidraScript)  
+INFO  GhidraPass3.java> /* WARNING: Globals starting with '_' overlap smaller symbols at the same address */ (GhidraScript)  
+INFO  GhidraPass3.java>  (GhidraScript)  
+INFO  GhidraPass3.java> void FUN_0040bea0(void) (GhidraScript)  
+INFO  GhidraPass3.java>  (GhidraScript)  
+INFO  GhidraPass3.java> { (GhidraScript)  
+INFO  GhidraPass3.java>   float fVar1; (GhidraScript)  
+INFO  GhidraPass3.java>   int iVar2; (GhidraScript)  
+INFO  GhidraPass3.java>   int iVar3; (GhidraScript)  
+INFO  GhidraPass3.java>   int *piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>   int iVar5; (GhidraScript)  
+INFO  GhidraPass3.java>   float10 extraout_ST0; (GhidraScript)  
+INFO  GhidraPass3.java>   float10 extraout_ST0_00; (GhidraScript)  
+INFO  GhidraPass3.java>   float10 extraout_ST1; (GhidraScript)  
+INFO  GhidraPass3.java>    (GhidraScript)  
+INFO  GhidraPass3.java>   iVar5 = DAT_00424240 * 0xf24; (GhidraScript)  
+INFO  GhidraPass3.java>   iVar2 = *(int *)(*(int *)(&DAT_00421750 + iVar5) + 0x28); (GhidraScript)  
+INFO  GhidraPass3.java>   if (*(short *)(&DAT_0042179c + iVar5) == 0) { (GhidraScript)  
+INFO  GhidraPass3.java>     fVar1 = *(float *)(&DAT_0042176c + iVar5) - (float)_DAT_00416b78; (GhidraScript)  
+INFO  GhidraPass3.java>     *(float *)(&DAT_0042176c + iVar5) = fVar1; (GhidraScript)  
+INFO  GhidraPass3.java>     if (fVar1 < (float)_DAT_00416b70 != (fVar1 == (float)_DAT_00416b70)) { (GhidraScript)  
+INFO  GhidraPass3.java>       *(undefined4 *)(&DAT_0042176c + iVar5) = _DAT_00416b68; (GhidraScript)  
+INFO  GhidraPass3.java>       *(undefined2 *)(&DAT_0042179c + iVar5) = 1; (GhidraScript)  
+INFO  GhidraPass3.java>     } (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   fVar1 = *(float *)(&DAT_0042176c + iVar5) + (float)_DAT_00416b18; (GhidraScript)  
+INFO  GhidraPass3.java>   *(float *)(&DAT_0042176c + iVar5) = fVar1; (GhidraScript)  
+INFO  GhidraPass3.java>   *(float *)(&DAT_0042175c + iVar5) = (GhidraScript)  
+INFO  GhidraPass3.java>        *(float *)(&DAT_00421768 + iVar5) + *(float *)(&DAT_0042175c + iVar5); (GhidraScript)  
+INFO  GhidraPass3.java>   *(float *)(&DAT_00421760 + iVar5) = *(float *)(&DAT_00421760 + iVar5) + fVar1; (GhidraScript)  
+INFO  GhidraPass3.java>   if (((fVar1 < 0.0) && (*(short *)(&DAT_004217a8 + iVar5) == 0)) && (GhidraScript)  
+INFO  GhidraPass3.java>      (iVar2 != *(int *)(&DAT_004217f4 + iVar5))) { (GhidraScript)  
+INFO  GhidraPass3.java>     iVar3 = *(int *)(*(int *)(&DAT_00421750 + iVar5) + 0x84); (GhidraScript)  
+INFO  GhidraPass3.java>     piVar4 = FUN_00405e10(); (GhidraScript)  
+INFO  GhidraPass3.java>     if ((piVar4[iVar3 * 0x23 + 0xd] == 0) || (GhidraScript)  
+INFO  GhidraPass3.java>        ((float10)*(int *)(piVar4[iVar3 * 0x23 + 0xd] + 0x14) < extraout_ST0 - (float10)_DAT_00416b60 (GhidraScript)  
+INFO  GhidraPass3.java>        )) { (GhidraScript)  
+INFO  GhidraPass3.java>       if (*(int *)(iVar2 + 0x2c4) != 4) { (GhidraScript)  
+INFO  GhidraPass3.java>         piVar4 = FUN_00405e10(); (GhidraScript)  
+INFO  GhidraPass3.java>         if ((piVar4[iVar3 * 0x23 + 0xd] != 0) && (GhidraScript)  
+INFO  GhidraPass3.java>            (extraout_ST1 - extraout_ST0_00 <= (float10)*(int *)(piVar4[iVar3 * 0x23 + 0xd] + 0x14))) (GhidraScript)  
+INFO  GhidraPass3.java>         { (GhidraScript)  
+INFO  GhidraPass3.java>           FUN_004097d0(); (GhidraScript)  
+INFO  GhidraPass3.java>           *(undefined4 *)(&DAT_0042176c + iVar5) = 0; (GhidraScript)  
+INFO  GhidraPass3.java>           FUN_0040c3d0(9); (GhidraScript)  
+INFO  GhidraPass3.java>         } (GhidraScript)  
+INFO  GhidraPass3.java>       } (GhidraScript)  
+INFO  GhidraPass3.java>     } (GhidraScript)  
+INFO  GhidraPass3.java>     else { (GhidraScript)  
+INFO  GhidraPass3.java>       FUN_004097d0(); (GhidraScript)  
+INFO  GhidraPass3.java>       *(undefined4 *)(&DAT_0042176c + iVar5) = 0; (GhidraScript)  
+INFO  GhidraPass3.java>       FUN_0040c3d0(9); (GhidraScript)  
+INFO  GhidraPass3.java>     } (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   fVar1 = *(float *)(&DAT_0042176c + iVar5); (GhidraScript)  
+INFO  GhidraPass3.java>   if (!NAN(fVar1) && 0.0 < fVar1 != (fVar1 == 0.0)) { (GhidraScript)  
+INFO  GhidraPass3.java>     FUN_0040c3d0(9); (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   return; (GhidraScript)  
+INFO  GhidraPass3.java> } (GhidraScript)  
+INFO  GhidraPass3.java> 
+
+======================================== (GhidraScript)  
+INFO  GhidraPass3.java> TARGET: LAB_0040c050 / FUN_0040c050 (GhidraScript)  
+INFO  GhidraPass3.java> PURPOSE: Felix state 7 update — fall speed (GhidraScript)  
+INFO  GhidraPass3.java> ========================================
+ (GhidraScript)  
+INFO  GhidraPass3.java> [NO FUNCTION FOUND containing or at 0x0040c050] (GhidraScript)  
+INFO  GhidraPass3.java> Attempting to look up nearby functions... (GhidraScript)  
+INFO  GhidraPass3.java> Next function after target: FUN_0040c3d0 at 0040c3d0 (GhidraScript)  
+INFO  GhidraPass3.java> Prev function before target: FUN_0040bea0 at 0040bea0 (GhidraScript)  
+INFO  GhidraPass3.java> 
+
+======================================== (GhidraScript)  
+INFO  GhidraPass3.java> TARGET: LAB_0040bc80 / FUN_0040bc80 (GhidraScript)  
+INFO  GhidraPass3.java> PURPOSE: Felix state 8 update — STUN DURATION (GhidraScript)  
+INFO  GhidraPass3.java> ========================================
+ (GhidraScript)  
+INFO  GhidraPass3.java> [NO FUNCTION FOUND containing or at 0x0040bc80] (GhidraScript)  
+INFO  GhidraPass3.java> Attempting to look up nearby functions... (GhidraScript)  
+INFO  GhidraPass3.java> Next function after target: FUN_0040bea0 at 0040bea0 (GhidraScript)  
+INFO  GhidraPass3.java> Prev function before target: FUN_0040b510 at 0040b510 (GhidraScript)  
+INFO  GhidraPass3.java> 
+
+======================================== (GhidraScript)  
+INFO  GhidraPass3.java> TARGET: LAB_0040c0d0 / FUN_0040c0d0 (GhidraScript)  
+INFO  GhidraPass3.java> PURPOSE: Felix states 6/9 update — hammer extended / dying (GhidraScript)  
+INFO  GhidraPass3.java> ========================================
+ (GhidraScript)  
+INFO  GhidraPass3.java> [NO FUNCTION FOUND containing or at 0x0040c0d0] (GhidraScript)  
+INFO  GhidraPass3.java> Attempting to look up nearby functions... (GhidraScript)  
+INFO  GhidraPass3.java> Next function after target: FUN_0040c3d0 at 0040c3d0 (GhidraScript)  
+INFO  GhidraPass3.java> Prev function before target: FUN_0040bea0 at 0040bea0 (GhidraScript)  
+INFO  GhidraPass3.java> 
+
+======================================== (GhidraScript)  
+INFO  GhidraPass3.java> TARGET: LAB_00402ab0 / FUN_00402ab0 (GhidraScript)  
+INFO  GhidraPass3.java> PURPOSE: Level setup dispatcher — DIFFICULTY SCALING, section type per level (GhidraScript)  
+INFO  GhidraPass3.java> ========================================
+ (GhidraScript)  
+INFO  GhidraPass3.java> CONTAINING FUNCTION: FUN_00402ab0 at 00402ab0 (GhidraScript)  
+INFO  GhidraPass3.java> SIZE: 13 bytes (GhidraScript)  
+INFO  GhidraPass3.java> ---
+ (GhidraScript)  
+INFO  GhidraPass3.java>  (GhidraScript)  
+INFO  GhidraPass3.java> void FUN_00402ab0(undefined4 param_1,undefined4 param_2,int param_3) (GhidraScript)  
+INFO  GhidraPass3.java>  (GhidraScript)  
+INFO  GhidraPass3.java> { (GhidraScript)  
+INFO  GhidraPass3.java>                     /* WARNING: Could not recover jumptable at 0x00402ab6. Too many branches */ (GhidraScript)  
+INFO  GhidraPass3.java>                     /* WARNING: Treating indirect jump as call */ (GhidraScript)  
+INFO  GhidraPass3.java>   (*(code *)(&PTR_LAB_00402dd0)[param_3])(); (GhidraScript)  
+INFO  GhidraPass3.java>   return; (GhidraScript)  
+INFO  GhidraPass3.java> } (GhidraScript)  
+INFO  GhidraPass3.java> 
+
+======================================== (GhidraScript)  
+INFO  GhidraPass3.java> TARGET: LAB_00402780 / FUN_00402780 (GhidraScript)  
+INFO  GhidraPass3.java> PURPOSE: Level config — DIFFICULTY CURVE PARAMETERS (GhidraScript)  
+INFO  GhidraPass3.java> ========================================
+ (GhidraScript)  
+INFO  GhidraPass3.java> CONTAINING FUNCTION: FUN_00402780 at 00402780 (GhidraScript)  
+INFO  GhidraPass3.java> SIZE: 804 bytes (GhidraScript)  
+INFO  GhidraPass3.java> ---
+ (GhidraScript)  
+INFO  GhidraPass3.java>  (GhidraScript)  
+INFO  GhidraPass3.java> void FUN_00402780(void) (GhidraScript)  
+INFO  GhidraPass3.java>  (GhidraScript)  
+INFO  GhidraPass3.java> { (GhidraScript)  
+INFO  GhidraPass3.java>   int iVar1; (GhidraScript)  
+INFO  GhidraPass3.java>   undefined4 *puVar2; (GhidraScript)  
+INFO  GhidraPass3.java>   uint uVar3; (GhidraScript)  
+INFO  GhidraPass3.java>   int *piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>   int *piVar5; (GhidraScript)  
+INFO  GhidraPass3.java>   int iVar6; (GhidraScript)  
+INFO  GhidraPass3.java>   DWORD _Seed; (GhidraScript)  
+INFO  GhidraPass3.java>    (GhidraScript)  
+INFO  GhidraPass3.java>   iVar6 = DAT_00424240; (GhidraScript)  
+INFO  GhidraPass3.java>   if (DAT_004242a4 == 0) { (GhidraScript)  
+INFO  GhidraPass3.java>     _Seed = timeGetTime(); (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   else { (GhidraScript)  
+INFO  GhidraPass3.java>     _Seed = 0xd80da1; (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   srand(_Seed); (GhidraScript)  
+INFO  GhidraPass3.java>   FUN_00409610(); (GhidraScript)  
+INFO  GhidraPass3.java>   piVar4 = (int *)(&DAT_004217c4)[iVar6 * 0x3c9]; (GhidraScript)  
+INFO  GhidraPass3.java>   iVar1 = *piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>   piVar5 = DAT_00424398; (GhidraScript)  
+INFO  GhidraPass3.java>   while (DAT_00424398 = piVar5, iVar1 != 0) { (GhidraScript)  
+INFO  GhidraPass3.java>     FUN_00409de0(); (GhidraScript)  
+INFO  GhidraPass3.java>     piVar4 = (int *)*piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>     piVar5 = DAT_00424398; (GhidraScript)  
+INFO  GhidraPass3.java>     iVar1 = *piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   uVar3 = -(uint)(*(int *)((&DAT_004217cc)[iVar6 * 0x3c9] + 4) != 0) & (GhidraScript)  
+INFO  GhidraPass3.java>           (&DAT_004217cc)[iVar6 * 0x3c9]; (GhidraScript)  
+INFO  GhidraPass3.java>   DAT_004243ac = *(int *)(uVar3 + 0x2cc) * 8 + 0x1c; (GhidraScript)  
+INFO  GhidraPass3.java>   *(short *)((int)piVar5 + 0xe) = (short)*(undefined4 *)(uVar3 + 0x2cc) * 8 + -8; (GhidraScript)  
+INFO  GhidraPass3.java>   *(undefined2 *)(piVar5 + 4) = 10; (GhidraScript)  
+INFO  GhidraPass3.java>   *(undefined2 *)(piVar5 + 3) = 0x60; (GhidraScript)  
+INFO  GhidraPass3.java>   if ((*piVar5 != 0) && (piVar5[1] != 0)) { (GhidraScript)  
+INFO  GhidraPass3.java>     *(int *)(*piVar5 + 4) = piVar5[1]; (GhidraScript)  
+INFO  GhidraPass3.java>     *(int *)piVar5[1] = *piVar5; (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   piVar5[1] = 0; (GhidraScript)  
+INFO  GhidraPass3.java>   *piVar5 = 0; (GhidraScript)  
+INFO  GhidraPass3.java>   if (*DAT_0041a25c == 0) { (GhidraScript)  
+INFO  GhidraPass3.java> LAB_0040286a: (GhidraScript)  
+INFO  GhidraPass3.java>     *piVar5 = (int)&DAT_0041a260; (GhidraScript)  
+INFO  GhidraPass3.java>     piVar5[1] = (int)DAT_0041a264; (GhidraScript)  
+INFO  GhidraPass3.java>     DAT_0041a264 = piVar5; (GhidraScript)  
+INFO  GhidraPass3.java>     *(int **)piVar5[1] = piVar5; (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   else { (GhidraScript)  
+INFO  GhidraPass3.java>     piVar4 = DAT_0041a25c; (GhidraScript)  
+INFO  GhidraPass3.java>     do { (GhidraScript)  
+INFO  GhidraPass3.java>       iVar6 = (int)(short)piVar4[4] - (int)(short)piVar5[4]; (GhidraScript)  
+INFO  GhidraPass3.java>       if (0 < iVar6) { (GhidraScript)  
+INFO  GhidraPass3.java>         *piVar5 = (int)piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>         puVar2 = (undefined4 *)piVar4[1]; (GhidraScript)  
+INFO  GhidraPass3.java>         piVar5[1] = (int)puVar2; (GhidraScript)  
+INFO  GhidraPass3.java>         *puVar2 = piVar5; (GhidraScript)  
+INFO  GhidraPass3.java>         piVar4[1] = (int)piVar5; (GhidraScript)  
+INFO  GhidraPass3.java>         break; (GhidraScript)  
+INFO  GhidraPass3.java>       } (GhidraScript)  
+INFO  GhidraPass3.java>       piVar4 = (int *)*piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>     } while (*piVar4 != 0); (GhidraScript)  
+INFO  GhidraPass3.java>     if (iVar6 < 1) goto LAB_0040286a; (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   piVar4 = DAT_00424358; (GhidraScript)  
+INFO  GhidraPass3.java>   *(short *)((int)DAT_00424358 + 0xe) = (short)DAT_004243ac; (GhidraScript)  
+INFO  GhidraPass3.java>   *(undefined2 *)(piVar4 + 4) = 0x5a; (GhidraScript)  
+INFO  GhidraPass3.java>   *(undefined2 *)(piVar4 + 3) = 0x2a; (GhidraScript)  
+INFO  GhidraPass3.java>   if ((*piVar4 != 0) && (piVar4[1] != 0)) { (GhidraScript)  
+INFO  GhidraPass3.java>     *(int *)(*piVar4 + 4) = piVar4[1]; (GhidraScript)  
+INFO  GhidraPass3.java>     *(int *)piVar4[1] = *piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   piVar4[1] = 0; (GhidraScript)  
+INFO  GhidraPass3.java>   *piVar4 = 0; (GhidraScript)  
+INFO  GhidraPass3.java>   if (*DAT_0041a25c == 0) { (GhidraScript)  
+INFO  GhidraPass3.java> LAB_004028f3: (GhidraScript)  
+INFO  GhidraPass3.java>     *piVar4 = (int)&DAT_0041a260; (GhidraScript)  
+INFO  GhidraPass3.java>     piVar4[1] = (int)DAT_0041a264; (GhidraScript)  
+INFO  GhidraPass3.java>     DAT_0041a264 = piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>     *(int **)piVar4[1] = piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   else { (GhidraScript)  
+INFO  GhidraPass3.java>     piVar5 = DAT_0041a25c; (GhidraScript)  
+INFO  GhidraPass3.java>     do { (GhidraScript)  
+INFO  GhidraPass3.java>       iVar6 = (int)(short)piVar5[4] - (int)(short)piVar4[4]; (GhidraScript)  
+INFO  GhidraPass3.java>       if (0 < iVar6) { (GhidraScript)  
+INFO  GhidraPass3.java>         *piVar4 = (int)piVar5; (GhidraScript)  
+INFO  GhidraPass3.java>         puVar2 = (undefined4 *)piVar5[1]; (GhidraScript)  
+INFO  GhidraPass3.java>         piVar4[1] = (int)puVar2; (GhidraScript)  
+INFO  GhidraPass3.java>         *puVar2 = piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>         piVar5[1] = (int)piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>         break; (GhidraScript)  
+INFO  GhidraPass3.java>       } (GhidraScript)  
+INFO  GhidraPass3.java>       piVar5 = (int *)*piVar5; (GhidraScript)  
+INFO  GhidraPass3.java>     } while (*piVar5 != 0); (GhidraScript)  
+INFO  GhidraPass3.java>     if (iVar6 < 1) goto LAB_004028f3; (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   piVar4 = DAT_0042435c; (GhidraScript)  
+INFO  GhidraPass3.java>   *(short *)((int)DAT_0042435c + 0xe) = (short)DAT_004243ac; (GhidraScript)  
+INFO  GhidraPass3.java>   *(undefined2 *)(piVar4 + 4) = 0x5a; (GhidraScript)  
+INFO  GhidraPass3.java>   *(undefined2 *)(piVar4 + 3) = 0x5a; (GhidraScript)  
+INFO  GhidraPass3.java>   if ((*piVar4 != 0) && (piVar4[1] != 0)) { (GhidraScript)  
+INFO  GhidraPass3.java>     *(int *)(*piVar4 + 4) = piVar4[1]; (GhidraScript)  
+INFO  GhidraPass3.java>     *(int *)piVar4[1] = *piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   piVar4[1] = 0; (GhidraScript)  
+INFO  GhidraPass3.java>   *piVar4 = 0; (GhidraScript)  
+INFO  GhidraPass3.java>   if (*DAT_0041a25c == 0) { (GhidraScript)  
+INFO  GhidraPass3.java> LAB_00402977: (GhidraScript)  
+INFO  GhidraPass3.java>     *piVar4 = (int)&DAT_0041a260; (GhidraScript)  
+INFO  GhidraPass3.java>     piVar4[1] = (int)DAT_0041a264; (GhidraScript)  
+INFO  GhidraPass3.java>     DAT_0041a264 = piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>     *(int **)piVar4[1] = piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   else { (GhidraScript)  
+INFO  GhidraPass3.java>     piVar5 = DAT_0041a25c; (GhidraScript)  
+INFO  GhidraPass3.java>     do { (GhidraScript)  
+INFO  GhidraPass3.java>       iVar6 = (int)(short)piVar5[4] - (int)(short)piVar4[4]; (GhidraScript)  
+INFO  GhidraPass3.java>       if (0 < iVar6) { (GhidraScript)  
+INFO  GhidraPass3.java>         *piVar4 = (int)piVar5; (GhidraScript)  
+INFO  GhidraPass3.java>         puVar2 = (undefined4 *)piVar5[1]; (GhidraScript)  
+INFO  GhidraPass3.java>         piVar4[1] = (int)puVar2; (GhidraScript)  
+INFO  GhidraPass3.java>         *puVar2 = piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>         piVar5[1] = (int)piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>         break; (GhidraScript)  
+INFO  GhidraPass3.java>       } (GhidraScript)  
+INFO  GhidraPass3.java>       piVar5 = (int *)*piVar5; (GhidraScript)  
+INFO  GhidraPass3.java>     } while (*piVar5 != 0); (GhidraScript)  
+INFO  GhidraPass3.java>     if (iVar6 < 1) goto LAB_00402977; (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   piVar4 = DAT_00424360; (GhidraScript)  
+INFO  GhidraPass3.java>   *(short *)((int)DAT_00424360 + 0xe) = (short)DAT_004243ac; (GhidraScript)  
+INFO  GhidraPass3.java>   *(undefined2 *)(piVar4 + 4) = 0x5a; (GhidraScript)  
+INFO  GhidraPass3.java>   *(undefined2 *)(piVar4 + 3) = 0x8a; (GhidraScript)  
+INFO  GhidraPass3.java>   if ((*piVar4 != 0) && (piVar4[1] != 0)) { (GhidraScript)  
+INFO  GhidraPass3.java>     *(int *)(*piVar4 + 4) = piVar4[1]; (GhidraScript)  
+INFO  GhidraPass3.java>     *(int *)piVar4[1] = *piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   piVar4[1] = 0; (GhidraScript)  
+INFO  GhidraPass3.java>   *piVar4 = 0; (GhidraScript)  
+INFO  GhidraPass3.java>   if (*DAT_0041a25c != 0) { (GhidraScript)  
+INFO  GhidraPass3.java>     piVar5 = DAT_0041a25c; (GhidraScript)  
+INFO  GhidraPass3.java>     do { (GhidraScript)  
+INFO  GhidraPass3.java>       iVar6 = (int)(short)piVar5[4] - (int)(short)piVar4[4]; (GhidraScript)  
+INFO  GhidraPass3.java>       if (0 < iVar6) { (GhidraScript)  
+INFO  GhidraPass3.java>         *piVar4 = (int)piVar5; (GhidraScript)  
+INFO  GhidraPass3.java>         puVar2 = (undefined4 *)piVar5[1]; (GhidraScript)  
+INFO  GhidraPass3.java>         piVar4[1] = (int)puVar2; (GhidraScript)  
+INFO  GhidraPass3.java>         *puVar2 = piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>         piVar5[1] = (int)piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>         break; (GhidraScript)  
+INFO  GhidraPass3.java>       } (GhidraScript)  
+INFO  GhidraPass3.java>       piVar5 = (int *)*piVar5; (GhidraScript)  
+INFO  GhidraPass3.java>     } while (*piVar5 != 0); (GhidraScript)  
+INFO  GhidraPass3.java>     if (0 < iVar6) goto LAB_00402a1c; (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   *piVar4 = (int)&DAT_0041a260; (GhidraScript)  
+INFO  GhidraPass3.java>   piVar4[1] = (int)DAT_0041a264; (GhidraScript)  
+INFO  GhidraPass3.java>   DAT_0041a264 = piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>   *(int **)piVar4[1] = piVar4; (GhidraScript)  
+INFO  GhidraPass3.java> LAB_00402a1c: (GhidraScript)  
+INFO  GhidraPass3.java>   piVar4 = DAT_00424364; (GhidraScript)  
+INFO  GhidraPass3.java>   *(short *)((int)DAT_00424364 + 0xe) = (short)DAT_004243ac; (GhidraScript)  
+INFO  GhidraPass3.java>   *(undefined2 *)(piVar4 + 4) = 0x5a; (GhidraScript)  
+INFO  GhidraPass3.java>   *(undefined2 *)(piVar4 + 3) = 0xba; (GhidraScript)  
+INFO  GhidraPass3.java>   if ((*piVar4 != 0) && (piVar4[1] != 0)) { (GhidraScript)  
+INFO  GhidraPass3.java>     *(int *)(*piVar4 + 4) = piVar4[1]; (GhidraScript)  
+INFO  GhidraPass3.java>     *(int *)piVar4[1] = *piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   piVar4[1] = 0; (GhidraScript)  
+INFO  GhidraPass3.java>   *piVar4 = 0; (GhidraScript)  
+INFO  GhidraPass3.java>   if (*DAT_0041a25c != 0) { (GhidraScript)  
+INFO  GhidraPass3.java>     piVar5 = DAT_0041a25c; (GhidraScript)  
+INFO  GhidraPass3.java>     do { (GhidraScript)  
+INFO  GhidraPass3.java>       iVar6 = (int)(short)piVar5[4] - (int)(short)piVar4[4]; (GhidraScript)  
+INFO  GhidraPass3.java>       if (0 < iVar6) { (GhidraScript)  
+INFO  GhidraPass3.java>         *piVar4 = (int)piVar5; (GhidraScript)  
+INFO  GhidraPass3.java>         puVar2 = (undefined4 *)piVar5[1]; (GhidraScript)  
+INFO  GhidraPass3.java>         piVar4[1] = (int)puVar2; (GhidraScript)  
+INFO  GhidraPass3.java>         *puVar2 = piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>         piVar5[1] = (int)piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>         break; (GhidraScript)  
+INFO  GhidraPass3.java>       } (GhidraScript)  
+INFO  GhidraPass3.java>       piVar5 = (int *)*piVar5; (GhidraScript)  
+INFO  GhidraPass3.java>     } while (*piVar5 != 0); (GhidraScript)  
+INFO  GhidraPass3.java>     if (0 < iVar6) { (GhidraScript)  
+INFO  GhidraPass3.java>       return; (GhidraScript)  
+INFO  GhidraPass3.java>     } (GhidraScript)  
+INFO  GhidraPass3.java>   } (GhidraScript)  
+INFO  GhidraPass3.java>   *piVar4 = (int)&DAT_0041a260; (GhidraScript)  
+INFO  GhidraPass3.java>   piVar4[1] = (int)DAT_0041a264; (GhidraScript)  
+INFO  GhidraPass3.java>   DAT_0041a264 = piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>   *(int **)piVar4[1] = piVar4; (GhidraScript)  
+INFO  GhidraPass3.java>   return; (GhidraScript)  
+INFO  GhidraPass3.java> } (GhidraScript)  
+INFO  GhidraPass3.java> 
+
+======================================== (GhidraScript)  
+INFO  GhidraPass3.java> TARGET: LAB_00413de0 / FUN_00413de0 (GhidraScript)  
+INFO  GhidraPass3.java> PURPOSE: Timer callback — game tick handler, BRICK THROW LOGIC, Controls.log (GhidraScript)  
+INFO  GhidraPass3.java> ========================================
+ (GhidraScript)  
+INFO  GhidraPass3.java> [NO FUNCTION FOUND containing or at 0x00413de0] (GhidraScript)  
+INFO  GhidraPass3.java> Attempting to look up nearby functions... (GhidraScript)  
+INFO  GhidraPass3.java> Next function after target: FUN_00414040 at 00414040 (GhidraScript)  
+INFO  GhidraPass3.java> Prev function before target: FUN_00413950 at 00413950 (GhidraScript)  
+INFO  GhidraPass3.java> 
+
+======================================== (GhidraScript)  
+INFO  GhidraPass3.java> TARGET: LAB_00407940 / FUN_00407940 (GhidraScript)  
+INFO  GhidraPass3.java> PURPOSE: Title screen update — attract mode behavior (GhidraScript)  
+INFO  GhidraPass3.java> ========================================
+ (GhidraScript)  
+INFO  GhidraPass3.java> [NO FUNCTION FOUND containing or at 0x00407940] (GhidraScript)  
+INFO  GhidraPass3.java> Attempting to look up nearby functions... (GhidraScript)  
+INFO  GhidraPass3.java> Next function after target: FUN_00407d50 at 00407d50 (GhidraScript)  
+INFO  GhidraPass3.java> Prev function before target: FUN_004078e0 at 004078e0 (GhidraScript)  
+INFO  GhidraPass3.java> 
+
+======================================== (GhidraScript)  
+INFO  GhidraPass3.java> TARGET: LAB_00407990 / FUN_00407990 (GhidraScript)  
+INFO  GhidraPass3.java> PURPOSE: Title screen draw (GhidraScript)  
+INFO  GhidraPass3.java> ========================================
+ (GhidraScript)  
+INFO  GhidraPass3.java> [NO FUNCTION FOUND containing or at 0x00407990] (GhidraScript)  
+INFO  GhidraPass3.java> Attempting to look up nearby functions... (GhidraScript)  
+INFO  GhidraPass3.java> Next function after target: FUN_00407d50 at 00407d50 (GhidraScript)  
+INFO  GhidraPass3.java> Prev function before target: FUN_004078e0 at 004078e0 (GhidraScript)  
+INFO  GhidraPass3.java> 
+
+======================================== (GhidraScript)  
+INFO  GhidraPass3.java> FLOATING POINT GLOBALS SCAN (GhidraScript)  
+INFO  GhidraPass3.java> ========================================
+ (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c00 = int:-1063256064 (0xc0a00000) float:-5.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c04 = int:1092616192 (0x41200000) float:10.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c08 = int:1129316352 (0x43500000) float:208.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c0c = int:1132724224 (0x43840000) float:264.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c10 = int:1610612736 (0x60000000) float:3.689349E19 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c14 = int:1073636966 (0x3ffe6666) float:1.9875 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c18 = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c1c = int:1075052544 (0x40140000) float:2.3125 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c20 = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c24 = int:1075576832 (0x401c0000) float:2.4375 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c28 = int:-1069547520 (0xc0400000) float:-3.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c2c = int:-1079613850 (0xbfa66666) float:-1.3 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c30 = int:1067869798 (0x3fa66666) float:1.3 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c34 = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c38 = int:-1610612736 (0xa0000000) float:-1.0842022E-19 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c3c = int:1071225241 (0x3fd99999) float:1.6999999 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c40 = int:72 (0x48) float:1.01E-43 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c44 = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c48 = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c4c = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c50 = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c54 = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c58 = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c5c = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c60 = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c64 = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c68 = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c6c = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c70 = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c74 = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c78 = int:0 (0x0) float:0.0 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00416c7c = int:4292608 (0x418000) float:6.015225E-39 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00418060 = int:-1 (0xffffffff) float:NaN (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00418064 = int:-1 (0xffffffff) float:NaN (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00418068 = int:-1 (0xffffffff) float:NaN (GhidraScript)  
+INFO  GhidraPass3.java> DAT_0041806c = int:-1 (0xffffffff) float:NaN (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00418070 = int:-1 (0xffffffff) float:NaN (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00418074 = int:1184016 (0x121110) float:1.65916E-39 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00418078 = int:101254920 (0x6090708) float:2.5772002E-35 (GhidraScript)  
+INFO  GhidraPass3.java> DAT_0041807c = int:67831050 (0x40b050a) float:1.6341685E-36 (GhidraScript)  
+INFO  GhidraPass3.java> 
+
+======================================== (GhidraScript)  
+INFO  GhidraPass3.java> ADDITIONAL DATA: PLAYER STATE OFFSETS (GhidraScript)  
+INFO  GhidraPass3.java> ========================================
+ (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424240 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424244 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424248 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_0042424c = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424250 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424254 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424258 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_0042425c = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424260 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424264 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424268 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_0042426c = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424270 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424274 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424278 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_0042427c = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424280 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424284 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424288 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_0042428c = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424290 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424294 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_00424298 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_0042429c = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_004242a0 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_004242a4 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_004242a8 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_004242ac = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_004242b0 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_004242b4 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_004242b8 = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> DAT_004242bc = 0 (0x0) (GhidraScript)  
+INFO  GhidraPass3.java> 
+PASS 3 COMPLETE. (GhidraScript)  
+INFO  ANALYZING changes made by post scripts: file:///Users/drewlenhart/Desktop/current_programs/Fix-it/FixitFelixJr.exe (HeadlessAnalyzer)  
+INFO  REPORT: Post-analysis succeeded for file: file:///Users/drewlenhart/Desktop/current_programs/Fix-it/FixitFelixJr.exe (HeadlessAnalyzer)  
+INFO  /FixitFelixJr.exe: file created (drewlenhart) (LocalFileSystem)  
+INFO  REPORT: Save succeeded for: /FixitFelixJr.exe (FixitFelix:/FixitFelixJr.exe) (HeadlessAnalyzer)  
+INFO  REPORT: Import succeeded (HeadlessAnalyzer)  
