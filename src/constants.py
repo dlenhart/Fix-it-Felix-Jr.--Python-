@@ -86,22 +86,12 @@ RALPH_SECTION_POSE_TICKS = 60  # [ASSUMED] pose length; timed by the game scene
 BRICK_SPAWN_SPREAD = 32  # [EXE] FUN_0040dd90 x offset is rand(-32..31)
 BRICK_SPAWN_DROP = 8  # [EXE] FUN_0040dd90 y offset below Ralph's feet
 
-BIRD_BASE_INTERVAL_TICKS = seconds_to_ticks(8.0)
-BIRD_INTERVAL_STEP_TICKS = seconds_to_ticks(0.5)
-BIRD_MIN_INTERVAL_TICKS = seconds_to_ticks(4.0)
-
-PIE_SPAWN_INTERVAL_TICKS = seconds_to_ticks(30.0)
-PIE_SPAWN_INTERVAL_STEP_TICKS = seconds_to_ticks(1.0)
-PIE_SPAWN_MIN_INTERVAL_TICKS = seconds_to_ticks(20.0)
 PIE_LINGER_TICKS = seconds_to_ticks(5.0)
 PIE_BLINK_WARNING_TICKS = seconds_to_ticks(1.5)   # blinks for the last 1.5s
 BLINK_TOGGLE_TICKS = seconds_to_ticks(0.25)       # pie blink cadence
 
-SECTION_CLEAR_TICKS = seconds_to_ticks(2.0)
 TITLE_BLINK_TICKS = seconds_to_ticks(0.5)
 GAME_OVER_TICKS = seconds_to_ticks(3.0)
-LEVEL_CLEAR_MIN_TICKS = seconds_to_ticks(1.0)   # before JUMP can skip
-LEVEL_CLEAR_TICKS = seconds_to_ticks(5.0)
 
 # Bricks. FUN_0040d490 (fall, window breaks), FUN_0040d3e0 (bounce), FUN_0040d230 (Felix hit).
 GROUND_Y = 317  # [EXE] FUN_0040d490 world y at which a falling brick bounces

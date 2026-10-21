@@ -1,70 +1,82 @@
 import random
+
 import pygame
+
 from scene_manager import Scene
-from constants import (
-    GAME_WIDTH, GAME_HEIGHT, SKY_BLUE, SECTION_CLEAR_TICKS,
-    BIRD_BASE_INTERVAL_TICKS, BIRD_INTERVAL_STEP_TICKS, BIRD_MIN_INTERVAL_TICKS,
-    PIE_SPAWN_INTERVAL_TICKS, PIE_SPAWN_INTERVAL_STEP_TICKS, PIE_SPAWN_MIN_INTERVAL_TICKS,
-)
+from constants import GAME_WIDTH, GAME_HEIGHT, BLACK
 from input_handler import Action
 from sprite_sheet import SpriteSheet
+from sprite_data import LIFE_ICON_PIECE
 from sound_manager import SoundManager
 from font_renderer import FontRenderer, scale_text_to_fit
-from entities.felix import Felix, FelixState
-from entities.ralph import Ralph, MAX_BRICKS
-from entities.building import Building, GRID_COLS
-from entities.brick import Brick
-from entities.bird import Bird
-from entities.pie import Pie
+from camera import Camera
+from entities.building import Building
+from entities.felix import Felix, RESPAWN_COLUMN, RESPAWN_LOCAL_ROW
+from entities.ralph import Ralph
+from entities.brick import BrickField
+from scenes.game_phases import GamePhase, LevelStartPhase
+
+PALETTE_COUNT = 5
+RALPH_START_X = 120  # Ruling 12: a fresh Ralph per level starts at the patrol center
+HUD_BAND_HEIGHT = 24  # [ASSUMED] HUD layout (spec section 10)
+HUD_SCORE_POSITION = (4, 4)  # [ASSUMED]
+HUD_LEVEL_POSITION = (4, 14)  # [ASSUMED]
+HUD_LIFE_ICONS_RIGHT_X = 236  # [ASSUMED]
+HUD_LIFE_ICON_Y = 4  # [ASSUMED] centers the 16px icon in the band
+HUD_LIFE_ICON_SPACING = 1  # [ASSUMED]
+HUD_MAX_LIFE_ICONS = 5  # [ASSUMED]
+HUD_LIFE_COUNT_GAP = 2  # [ASSUMED] gap between the xN text and the first icon
 
 
 class GameScene(Scene):
-    def __init__(self, manager):
+    """One game: owns the world for the current level and delegates per-tick flow to a GamePhase."""
+
+    def __init__(self, manager, rng: random.Random | None = None):
         super().__init__(manager)
+        self.rng = rng or random.Random()
         self.sprites = SpriteSheet()
         self.sound = SoundManager()
         self.font = FontRenderer(self.sprites)
-        self.building = Building()
-        self.felix = Felix()
-        self.ralph = Ralph()
-        self.bricks = []
-        self.birds = []
-        self.pie = None
         self.level = 1
-        self.palette = 0
-        self._bird_ticks = 0
-        self._bird_interval_ticks = BIRD_BASE_INTERVAL_TICKS
-        self._bird_from_left = True
-        self._pie_ticks = 0
-        self._pie_interval_ticks = PIE_SPAWN_INTERVAL_TICKS
-        self._section_clear_ticks = 0
-        self._is_section_clearing = False
+        self.felix = Felix()
+        self.building: Building | None = None
+        self.camera: Camera | None = None
+        self.ralph: Ralph | None = None
+        self.bricks: BrickField | None = None
+        self.phase: GamePhase | None = None
+        self.input_handler = self._null_input
         self._is_paused = False
-        self._high_score = 0
+        self._has_game_ended = False
+
+    @property
+    def palette(self) -> int:
+        return (self.level - 1) % PALETTE_COUNT
 
     def on_enter(self):
-        self._start_level()
+        self.start_level(self.level)
         self.sound.play_music("gameplay_a")
 
-    def _start_level(self):
-        self.building.reset_for_level(self.level)
-        self.felix.reset_position()
-        self.ralph.configure_for_level(self.level)
-        self.palette = (self.level - 1) % 5
-        self.bricks.clear()
-        self.birds.clear()
-        self.pie = None
-        self._bird_ticks = 0
-        self._pie_ticks = 0
-        self._is_section_clearing = False
+    def start_level(self, level: int) -> None:
+        """Build a fresh world for the level; Felix keeps his score and lives."""
+        self.level = level
+        self.building = Building(level, self.rng)
+        self.camera = Camera()
+        self.ralph = Ralph(self.rng)
+        self.ralph.x = RALPH_START_X
+        self.bricks = BrickField(self.rng)
+        self.felix.place_at(RESPAWN_LOCAL_ROW, RESPAWN_COLUMN, self.building)
+        self.phase = LevelStartPhase()
 
-        bird_level_threshold = 2
-        self._bird_interval_ticks = max(
-            BIRD_MIN_INTERVAL_TICKS,
-            BIRD_BASE_INTERVAL_TICKS - (self.level - bird_level_threshold) * BIRD_INTERVAL_STEP_TICKS)
-        self._pie_interval_ticks = max(
-            PIE_SPAWN_MIN_INTERVAL_TICKS,
-            PIE_SPAWN_INTERVAL_TICKS - (self.level - 1) * PIE_SPAWN_INTERVAL_STEP_TICKS)
+    def end_game(self) -> None:
+        """Hand off to the game-over screen. Safe to call more than once."""
+        if self._has_game_ended:
+            return
+        self._has_game_ended = True
+        self.sound.stop_music()
+        # TODO: GameOverScene.on_enter also plays "game_over", so it sounds twice.
+        self.sound.play_sfx("game_over")
+        from scenes.game_over_scene import GameOverScene
+        self.manager.replace(GameOverScene(self.manager, self.felix.score))
 
     def tick(self, input_handler):
         """One game tick (1/60s). All game logic is tick-counted."""
@@ -72,80 +84,11 @@ class GameScene(Scene):
         if self._is_paused:
             return
 
-        if self._is_section_clearing:
-            self._section_clear_ticks += 1
-            if self._section_clear_ticks >= SECTION_CLEAR_TICKS:
-                self._is_section_clearing = False
-                if self.building.is_level_clear():
-                    self._advance_level()
-                else:
-                    self.felix.reset_position()
-                    self.bricks.clear()
-                    self.birds.clear()
-                    self.pie = None
-            return
-
-        self.felix.tick(input_handler, self.building, self.sound)
-
-        new_bricks = self.ralph.tick(self.felix, self.building, self.sound)
-        available_slots = MAX_BRICKS - len(self.bricks)
-        if available_slots > 0:
-            self.bricks.extend(new_bricks[:available_slots])
-
-        for brick in self.bricks[:]:
-            brick.tick()
-            if not brick.active:
-                self.bricks.remove(brick)
-                continue
-            if brick.hits_felix(self.felix, self.building):
-                self.felix.stun(self.sound)
-                brick.active = False
-                self.bricks.remove(brick)
-                if not self.felix.is_alive:
-                    self._game_over()
-                    return
-
-        if self.level >= 2:
-            self._bird_ticks += 1
-            if self._bird_ticks >= self._bird_interval_ticks:
-                self._bird_ticks = 0
-                bird_row = random.randint(0, self.building.current_rows - 1)
-                bird = Bird(bird_row, self._bird_from_left, self.building)
-                self.birds.append(bird)
-                self._bird_from_left = not self._bird_from_left
-
-        for bird in self.birds[:]:
-            bird.tick()
-            if not bird.active:
-                self.birds.remove(bird)
-                continue
-            if bird.hits_felix(self.felix, self.building):
-                self.felix.stun(self.sound)
-                bird.active = False
-                self.birds.remove(bird)
-                if not self.felix.is_alive:
-                    self._game_over()
-                    return
-
-        self._pie_ticks += 1
-        if self._pie_ticks >= self._pie_interval_ticks and self.pie is None:
-            self._pie_ticks = 0
-            pie_col = random.randint(0, GRID_COLS - 1)
-            pie_row = random.randint(0, self.building.current_rows - 1)
-            self.pie = Pie(pie_col, pie_row, self.building)
-            self.sound.play_sfx("pie_throw")
-
-        if self.pie:
-            self.pie.tick()
-            if not self.pie.active:
-                self.pie = None
-            elif self.pie.collected_by_felix(self.felix, self.building):
-                self.felix.activate_super(self.sound)
-                self.sound.play_sfx("pie_pickup")
-                self.pie = None
-
-        if self.building.is_section_clear():
-            self._section_clear()
+        self.input_handler = input_handler
+        self.camera.snapshot()
+        next_phase = self.phase.tick(self)
+        if next_phase is not None:
+            self.phase = next_phase
 
     def _update_pause(self, input_handler):
         is_toggle_pressed = (input_handler.is_just_pressed(Action.START) or
@@ -170,27 +113,6 @@ class GameScene(Scene):
 
     _null_input = _NullInput()
 
-    def _section_clear(self):
-        self._is_section_clearing = True
-        self._section_clear_ticks = 0
-        self.felix.state = FelixState.CELEBRATING
-        self.building.advance_section()
-        self.sound.play_sfx("section_clear")
-        self.bricks.clear()
-        self.birds.clear()
-
-    def _advance_level(self):
-        self.sound.stop_music()
-        from scenes.level_clear_scene import LevelClearScene
-        self.manager.replace(LevelClearScene(
-            self.manager, self.level, self.felix.score))
-
-    def _game_over(self):
-        self.sound.stop_music()
-        self.sound.play_sfx("game_over")
-        from scenes.game_over_scene import GameOverScene
-        self.manager.replace(GameOverScene(self.manager, self.felix.score))
-
     def draw(self, screen, alpha=1.0):
         # Interpolation blends each entity between its last two tick
         # positions; with ticks frozen, a cycling alpha would make moving
@@ -198,28 +120,16 @@ class GameScene(Scene):
         if self._is_paused:
             alpha = 1.0
 
-        screen.fill(SKY_BLUE)
-        self.building.draw(screen, self.sprites, self.palette)
-
-        if self.pie:
-            self.pie.draw(screen, self.sprites, self.palette)
-
-        for brick in self.bricks:
-            brick.draw(screen, self.sprites, self.palette, alpha)
-
-        for bird in self.birds:
-            bird.draw(screen, self.sprites, self.palette, alpha)
-
-        self.ralph.draw(screen, self.sprites, self.palette)
-        self.felix.draw(screen, self.sprites, self.palette, self.building, alpha)
+        screen.fill(BLACK)
+        # TODO: Building.draw takes no alpha, so during the section scroll the
+        # building sits at the latest scroll while entities interpolate.
+        self.building.draw(screen, self.sprites, self.camera, self.palette)
+        self.bricks.draw(screen, self.sprites, self.camera, self.palette, alpha)
+        self.ralph.draw(screen, self.sprites, self.camera, self.palette, alpha)
+        self.felix.draw(screen, self.sprites, self.camera, self.palette, alpha)
 
         self._draw_hud(screen)
-
-        if self._is_section_clearing:
-            text = self.font.render_text("YOU FIXED IT!", color_row=0)
-            scaled = scale_text_to_fit(text, GAME_WIDTH - 16, preferred_scale=2.0)
-            rect = scaled.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2))
-            screen.blit(scaled, rect)
+        self.phase.draw_overlay(self, screen)
 
         if self._is_paused:
             self._draw_pause_overlay(screen)
@@ -237,14 +147,28 @@ class GameScene(Scene):
         screen.blit(prompt, prompt.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2 + 16)))
 
     def _draw_hud(self, screen):
-        # All in 240x320 space — no scaling needed, sprites are native size.
-        # Score sits top-right, opposite LEVEL/LIVES, over open brick above
-        # the building — at the bottom it overlapped the lowest window row.
+        screen.fill(BLACK, pygame.Rect(0, 0, GAME_WIDTH, HUD_BAND_HEIGHT))
+
         score_text = self.font.render_text(f"{self.felix.score:06d}", color_row=0)
-        screen.blit(score_text, (GAME_WIDTH - score_text.get_width() - 4, 4))
+        screen.blit(score_text, HUD_SCORE_POSITION)
 
         level_text = self.font.render_text(f"LEVEL {self.level}", color_row=0)
-        screen.blit(level_text, (4, 4))
+        screen.blit(level_text, HUD_LEVEL_POSITION)
 
-        lives_text = self.font.render_text(f"LIVES {self.felix.lives:02d}", color_row=0)
-        screen.blit(lives_text, (4, 14))
+        self._draw_life_icons(screen)
+
+    def _draw_life_icons(self, screen):
+        icon = self.sprites.get_piece(LIFE_ICON_PIECE, self.palette)
+        icon_count = min(self.felix.lives, HUD_MAX_LIFE_ICONS)
+        left_x = HUD_LIFE_ICONS_RIGHT_X
+        for _ in range(icon_count):
+            left_x -= icon.get_width()
+            screen.blit(icon, (left_x, HUD_LIFE_ICON_Y))
+            left_x -= HUD_LIFE_ICON_SPACING
+
+        if self.felix.lives <= HUD_MAX_LIFE_ICONS:
+            return
+        count_text = self.font.render_text(f"X{self.felix.lives}", color_row=0)
+        text_y = HUD_LIFE_ICON_Y + (icon.get_height() - count_text.get_height()) // 2
+        text_x = left_x - HUD_LIFE_COUNT_GAP - count_text.get_width()
+        screen.blit(count_text, (text_x, text_y))

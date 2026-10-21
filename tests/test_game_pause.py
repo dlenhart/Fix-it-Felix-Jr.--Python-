@@ -1,16 +1,21 @@
-import sys, os
+import os
+import random
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 os.environ["SDL_AUDIODRIVER"] = "dummy"
-import pygame
+import pygame  # noqa: E402
+
 pygame.init()
 pygame.display.set_mode((1, 1))
 
-from constants import GAME_WIDTH, GAME_HEIGHT
-from input_handler import Action
-from scene_manager import SceneManager
-from scenes.game_scene import GameScene
+from constants import GAME_HEIGHT, GAME_WIDTH  # noqa: E402
+from input_handler import Action  # noqa: E402
+from scene_manager import SceneManager  # noqa: E402
+from scenes.game_phases import PlayPhase  # noqa: E402
+from scenes.game_scene import GameScene  # noqa: E402
 
 
 class MockInput:
@@ -28,16 +33,26 @@ class MockInput:
         return self._has_lost_focus
 
 
-def make_game():
+def make_game(seed=3):
     manager = SceneManager()
-    game = GameScene(manager)
+    game = GameScene(manager, rng=random.Random(seed))
     manager.push(game)
     return game
 
 
-def snapshot(game):
-    return (game.ralph.throw_ticks, game._pie_ticks,
-            [(brick.x, brick.y) for brick in game.bricks])
+def reach_play(game):
+    for _ in range(5000):
+        if isinstance(game.phase, PlayPhase):
+            return
+        game.tick(MockInput())
+    raise AssertionError("never reached PlayPhase")
+
+
+def world_snapshot(game):
+    phase = game.phase
+    return (type(phase), dict(vars(phase)), game.camera.scroll_y,
+            game.ralph.x, game.ralph.y, game.ralph.state,
+            [(brick.x, brick.y) for brick in game.bricks._bricks])
 
 
 def test_pause_key_toggles():
@@ -49,26 +64,45 @@ def test_pause_key_toggles():
         assert not game._is_paused
 
 
-def test_paused_game_does_not_advance():
+def test_paused_level_start_does_not_advance():
     game = make_game()
-    for _ in range(200):
+    for _ in range(50):
         game.tick(MockInput())
     game.tick(MockInput([Action.PAUSE]))
-    before = snapshot(game)
+    before = world_snapshot(game)
     for _ in range(300):
         game.tick(MockInput())
-    assert snapshot(game) == before
+    assert world_snapshot(game) == before
+
+
+def test_paused_play_freezes_ralph_and_bricks():
+    game = make_game()
+    reach_play(game)
+    for _ in range(200):
+        game.tick(MockInput())
+        if game.bricks.live_count:
+            break
+    assert game.bricks.live_count > 0
+    game.tick(MockInput([Action.PAUSE]))
+    before = world_snapshot(game)
+    for _ in range(300):
+        game.tick(MockInput())
+    assert world_snapshot(game) == before
+
+    game.tick(MockInput([Action.PAUSE]))
+    game.tick(MockInput())
+    assert world_snapshot(game) != before
 
 
 def test_paused_game_ignores_movement_input():
     game = make_game()
-    game.tick(MockInput())
+    reach_play(game)
     game.tick(MockInput([Action.PAUSE]))
-    col_before = game.felix.col
+    column_before = game.felix.column
     game.tick(MockInput([Action.RIGHT]))
     for _ in range(60):
         game.tick(MockInput())
-    assert game.felix.col == col_before
+    assert game.felix.column == column_before
 
 
 def test_focus_loss_pauses_but_never_unpauses():
@@ -84,12 +118,3 @@ def test_paused_draw_renders():
     game.tick(MockInput([Action.PAUSE]))
     surface = pygame.Surface((GAME_WIDTH, GAME_HEIGHT))
     game.draw(surface, alpha=0.3)
-
-
-if __name__ == "__main__":
-    test_pause_key_toggles()
-    test_paused_game_does_not_advance()
-    test_paused_game_ignores_movement_input()
-    test_focus_loss_pauses_but_never_unpauses()
-    test_paused_draw_renders()
-    print("All pause tests passed!")

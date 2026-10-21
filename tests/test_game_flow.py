@@ -1,0 +1,202 @@
+import os
+import random
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+os.environ["SDL_VIDEODRIVER"] = "dummy"
+os.environ["SDL_AUDIODRIVER"] = "dummy"
+import pygame  # noqa: E402
+
+pygame.init()
+pygame.display.set_mode((1, 1))
+
+from constants import GAME_HEIGHT, GAME_WIDTH  # noqa: E402
+from input_handler import Action  # noqa: E402
+from scene_manager import SceneManager  # noqa: E402
+from scenes.game_over_scene import GameOverScene  # noqa: E402
+from scenes.game_phases import (  # noqa: E402
+    LevelEndPhase, LevelStartPhase, PlayPhase, SectionClearPhase,
+)
+from scenes.game_scene import GameScene  # noqa: E402
+
+TICK_LIMIT = 5000
+
+
+class MockInput:
+    def __init__(self, just=(), has_lost_focus=False):
+        self._just = set(just)
+        self._has_lost_focus = has_lost_focus
+
+    def is_just_pressed(self, action):
+        return action in self._just
+
+    def is_pressed(self, action):
+        return False
+
+    def has_lost_focus(self):
+        return self._has_lost_focus
+
+
+def make_game(seed=1):
+    manager = SceneManager()
+    game = GameScene(manager, rng=random.Random(seed))
+    manager.push(game)
+    return manager, game
+
+
+def tick_until(game, condition):
+    for _ in range(TICK_LIMIT):
+        if condition():
+            return
+        game.tick(MockInput())
+    raise AssertionError("condition never became true")
+
+
+def fix_section(game):
+    for floor in game.building.section_floors():
+        for cell in floor.cells:
+            game.building.fix(cell)
+
+
+def reach_play(game):
+    tick_until(game, lambda: isinstance(game.phase, PlayPhase))
+
+
+def spawn_brick_on_felix(game):
+    hitbox = game.felix.hitbox()
+    game.bricks.spawn(hitbox.centerx, hitbox.bottom - 4)
+
+
+def test_level_start_damages_section_zero_then_plays():
+    _, game = make_game()
+    assert isinstance(game.phase, LevelStartPhase)
+    reach_play(game)
+    assert game.building.broken_count > 0
+    door = game.building.cell(0, 2)
+    assert door.is_broken
+
+
+def test_level_start_shows_ready_pause_after_climb():
+    _, game = make_game()
+    tick_until(game, lambda: game.phase.is_ready_countdown)
+    ready_ticks = 0
+    while isinstance(game.phase, LevelStartPhase):
+        game.tick(MockInput())
+        ready_ticks += 1
+    assert ready_ticks == 180
+
+
+def test_fixing_all_windows_clears_section_scrolls_and_resumes():
+    _, game = make_game()
+    reach_play(game)
+    fix_section(game)
+    game.tick(MockInput())
+    assert isinstance(game.phase, SectionClearPhase)
+    reach_play(game)
+    assert game.building.section_index == 1
+    assert game.camera.scroll_y == game.building.scroll_target(1)
+    assert game.felix.local_row == 0
+    assert game.building.broken_count > 0
+
+
+def test_last_section_goes_to_level_end_then_next_level_keeps_lives_and_score():
+    _, game = make_game()
+    reach_play(game)
+    game.felix.score = 1234
+    game.felix.lives = 7
+    for _ in range(game.building.section_count):
+        fix_section(game)
+        tick_until(game, lambda: not isinstance(game.phase, PlayPhase))
+        tick_until(game, lambda: isinstance(game.phase, (PlayPhase, LevelEndPhase)))
+    assert isinstance(game.phase, LevelEndPhase)
+
+    tick_until(game, lambda: game.level == 2)
+    assert isinstance(game.phase, LevelStartPhase)
+    assert game.building.section_index == 0
+    assert game.camera.scroll_y == 0
+    assert (game.felix.score, game.felix.lives) == (1234, 7)
+
+
+def test_no_hits_or_scoring_outside_play_phase():
+    _, game = make_game()
+    reach_play(game)
+    fix_section(game)
+    game.tick(MockInput())
+    assert isinstance(game.phase, SectionClearPhase)
+    lives_before, score_before = game.felix.lives, game.felix.score
+    spawn_brick_on_felix(game)
+    for _ in range(30):
+        game.tick(MockInput([Action.JUMP]))
+    assert isinstance(game.phase, SectionClearPhase)
+    assert (game.felix.lives, game.felix.score) == (lives_before, score_before)
+
+
+def test_game_over_fires_once():
+    manager, game = make_game()
+    reach_play(game)
+    game.felix.lives = 1
+    replace_calls = []
+    original_replace = manager.replace
+
+    def counting_replace(scene):
+        replace_calls.append(scene)
+        original_replace(scene)
+
+    manager.replace = counting_replace
+    spawn_brick_on_felix(game)
+    spawn_brick_on_felix(game)
+    game.tick(MockInput())
+    game.end_game()
+    assert len(replace_calls) == 1
+    assert isinstance(manager.current, GameOverScene)
+
+
+def test_pause_freezes_scroll_and_climb():
+    _, game = make_game()
+    reach_play(game)
+    fix_section(game)
+    tick_until(game, lambda: isinstance(game.phase, SectionClearPhase) and game.phase.is_climbing)
+    for _ in range(5):
+        game.tick(MockInput())
+
+    def frozen_state():
+        phase = game.phase
+        return (game.camera.scroll_y, game.ralph.x, game.ralph.y,
+                phase.pose_ticks, phase.is_climbing, phase.is_scrolling)
+
+    game.tick(MockInput([Action.PAUSE]))
+    before = frozen_state()
+    for _ in range(300):
+        game.tick(MockInput())
+    assert frozen_state() == before
+
+    game.tick(MockInput([Action.PAUSE]))
+    tick_until(game, lambda: game.phase.is_scrolling)
+    game.tick(MockInput([Action.PAUSE]))
+    scroll_before = game.camera.scroll_y
+    for _ in range(30):
+        game.tick(MockInput())
+    assert game.camera.scroll_y == scroll_before
+
+    game.tick(MockInput([Action.PAUSE]))
+    game.tick(MockInput())
+    assert game.camera.scroll_y != scroll_before
+
+
+def test_draw_renders_every_phase():
+    _, game = make_game()
+    surface = pygame.Surface((GAME_WIDTH, GAME_HEIGHT))
+    game.felix.lives = 12
+    seen_phases = set()
+    game.draw(surface, alpha=0.5)
+    reach_play(game)
+    for _ in range(game.building.section_count):
+        fix_section(game)
+        for _ in range(TICK_LIMIT):
+            game.tick(MockInput())
+            game.draw(surface, alpha=0.5)
+            seen_phases.add(type(game.phase))
+            if isinstance(game.phase, (PlayPhase, LevelEndPhase)):
+                break
+    assert {SectionClearPhase, PlayPhase, LevelEndPhase} <= seen_phases
