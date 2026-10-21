@@ -1,166 +1,190 @@
-import enum
+"""Building model: floors stacked in world coordinates, each with window cells.
+
+Model only; drawing is added separately. Layout follows the exe's
+FUN_00405e50 / FUN_00409610, damage FUN_00409840, fix and scoring FUN_00409a70.
+"""
+
 import random
-import pygame
-from constants import GAME_WIDTH, GAME_HEIGHT
+
+from exe_tables import BUILDING_PIECES
+from level_config import (
+    CELL_PIECE,
+    CENTER_CELL_KIND,
+    COLUMN_X,
+    FLOOR_HEIGHT,
+    FLOORS_PER_SECTION,
+    STREET_Y,
+    CellKind,
+    FloorType,
+    get_floor_sequence,
+    get_level_config,
+)
+
+PANE_INTACT = 0
+PANE_SMASHED = 5  # [EXE] FUN_00409840: pane state 5 is fully smashed
+
+CENTER_COLUMN = 2
+FIX_SCORE = 100  # [EXE] FUN_00409a70
+FIX_LAST_WINDOW_SCORE = 500  # [EXE] FUN_00409a70 ("FIX LAST WINDOW 500 PTS")
 
 
-class WindowState(enum.Enum):
-    INTACT = 0
-    CRACKED = 1
-    BROKEN = 2
+class WindowCell:
+    """One window slot on a floor, with pane or door damage state."""
+
+    def __init__(self, kind: CellKind, column: int, x: int, floor_index: int):
+        self.kind = kind
+        self.column = column
+        self.x = x
+        self.width: int = BUILDING_PIECES[CELL_PIECE[kind]][2]
+        self.floor_index = floor_index
+        self.top_pane = PANE_INTACT
+        self.bottom_pane = PANE_INTACT
+        self.door_damage = PANE_INTACT
+        self.has_sill_obstacle = False
+
+    @property
+    def is_damageable(self) -> bool:
+        # Decorative, never damaged. [ASSUMED] (spec section 3, first rebuild)
+        return self.kind != CellKind.ARCHED
+
+    @property
+    def is_broken(self) -> bool:
+        if self.kind == CellKind.DOOR:
+            return self.door_damage > PANE_INTACT
+        if self.kind == CellKind.ARCHED:
+            return False
+        return self.top_pane > PANE_INTACT or self.bottom_pane > PANE_INTACT
+
+    @property
+    def center_x(self) -> float:
+        return self.x + self.width / 2
+
+    def damage(self, is_heavy: bool, rng: random.Random) -> None:
+        """Apply FUN_00409840: set one random pane (or the door) to a damage level.
+
+        Light sets rng.randint(1, 5), which can lower an already worse pane (exe
+        behavior). Heavy sets 5. Arched cells ignore damage.
+        """
+        if not self.is_damageable:
+            return
+        level = PANE_SMASHED if is_heavy else rng.randint(1, 5)
+        if self.kind == CellKind.DOOR:
+            self.door_damage = level
+        elif rng.random() < 0.5:
+            self.top_pane = level
+        else:
+            self.bottom_pane = level
+
+    def fix(self) -> None:
+        """Restore the whole window; one hammer swing fixes every pane (FUN_00409a70)."""
+        self.top_pane = PANE_INTACT
+        self.bottom_pane = PANE_INTACT
+        self.door_damage = PANE_INTACT
 
 
-WINDOW_SPRITE_MAP = {
-    WindowState.INTACT: "window_intact",
-    WindowState.CRACKED: "window_cracked",
-    WindowState.BROKEN: "window_broken",
-}
+class Floor:
+    """One floor of the building, stacked upward in world y."""
 
-GRID_COLS = 5          # Confirmed by Ghidra: puVar3[0x13] = 5
-SECTIONS_PER_LEVEL = 3
+    def __init__(self, index: int, floor_type: FloorType, bottom_y: int):
+        self.index = index
+        self.floor_type = floor_type
+        self.bottom_y = bottom_y
+        self.height: int = FLOOR_HEIGHT[floor_type]
+        self.cells: list[WindowCell] = self._build_cells()
 
-# Rows per section vary by type (Ghidra: (type != 2) + 6)
-SECTION_TYPES = {
-    0: {"rows": 7, "height": 12},
-    1: {"rows": 7, "height": 13},
-    2: {"rows": 6, "height": 10},
-    3: {"rows": 7, "height": 11},
-    4: {"rows": 7, "height": 9},   # Special: 5 sub-rows with explicit setup
-}
+    @property
+    def top_y(self) -> int:
+        return self.bottom_y - self.height
 
-# Coordinates in the 240x320 internal space
-WINDOW_WIDTH = 24
-WINDOW_HEIGHT = 24
-GRID_LEFT = 20
-GRID_TOP = 64          # Ghidra: DAT_004243d4 = 0x40 (64)
-WINDOW_SPACING_X = 40
-WINDOW_SPACING_Y = 36
-
-
-class WindowSlot:
-    def __init__(self):
-        self.state = WindowState.INTACT
-
-    def damage(self):
-        if self.state == WindowState.INTACT:
-            self.state = WindowState.CRACKED
-        elif self.state == WindowState.CRACKED:
-            self.state = WindowState.BROKEN
-
-    def repair(self, is_super=False):
-        if self.state == WindowState.INTACT:
-            return False, False
-        if is_super:
-            self.state = WindowState.INTACT
-            return True, True
-        if self.state == WindowState.BROKEN:
-            self.state = WindowState.CRACKED
-            return True, False
-        if self.state == WindowState.CRACKED:
-            self.state = WindowState.INTACT
-            return True, True
-        return False, False
+    def _build_cells(self) -> list[WindowCell]:
+        if self.floor_type == FloorType.ROOF:
+            return []
+        center_kind = CENTER_CELL_KIND[self.floor_type]
+        return [
+            WindowCell(
+                center_kind if column == CENTER_COLUMN else CellKind.PLAIN,
+                column,
+                x,
+                self.index,
+            )
+            for column, x in enumerate(COLUMN_X[self.floor_type])
+        ]
 
 
 class Building:
-    def __init__(self):
-        self.current_section = 0
-        self.sections = []
-        self.section_types = []
+    """All floors of a level plus the active section and window bookkeeping."""
 
-    def _create_sections(self, type_list):
-        self.sections = []
-        self.section_types = type_list
-        for section_type in type_list:
-            rows = SECTION_TYPES[section_type]["rows"]
-            section = [[WindowSlot() for _ in range(GRID_COLS)] for _ in range(rows)]
-            self.sections.append(section)
+    def __init__(self, level: int, rng: random.Random):
+        self._rng = rng
+        self.section_count = get_level_config(level).section_count
+        self.section_index = 0
+        self.floors = self._build_floors(level)
 
-    def reset_for_level(self, level):
-        self.current_section = 0
-        # Section type assignment varies by level
-        # Levels 1-3: easier types (0, 1), Levels 4-7: mixed (2, 3), Level 8+: harder (3, 4)
-        if level < 4:
-            type_list = [0, 1, 0]
-        elif level < 8:
-            type_list = [2, 0, 3]
-        else:
-            type_list = [3, 2, 4]
-        self._create_sections(type_list)
-        initial_broken = min(3 + level, 12)
-        for section in self.sections:
-            num_rows = len(section)
-            broken_count = min(initial_broken, GRID_COLS * num_rows)
-            positions = [(r, c) for r in range(num_rows) for c in range(GRID_COLS)]
-            random.shuffle(positions)
-            for i in range(broken_count):
-                r, c = positions[i]
-                section[r][c].state = WindowState.BROKEN
+    @staticmethod
+    def _build_floors(level: int) -> list[Floor]:
+        floors: list[Floor] = []
+        bottom_y = STREET_Y
+        for index, floor_type in enumerate(get_floor_sequence(level)):
+            floor = Floor(index, floor_type, bottom_y)
+            floors.append(floor)
+            bottom_y = floor.top_y
+        return floors
 
-    @property
-    def _current_grid(self):
-        return self.sections[self.current_section]
+    def section_floors(self, section_index: int | None = None) -> list[Floor]:
+        """Return the floors of a section (default: the active one), bottom first."""
+        if section_index is None:
+            section_index = self.section_index
+        start = section_index * FLOORS_PER_SECTION
+        return self.floors[start:start + FLOORS_PER_SECTION]
 
-    def get_window_state(self, col, row):
-        return self._current_grid[row][col].state
+    def cell(self, local_row: int, column: int) -> WindowCell:
+        """Return a cell of the active section; local_row 0 is the bottom floor."""
+        return self.section_floors()[local_row].cells[column]
 
-    def damage_window(self, col, row):
-        if 0 <= col < GRID_COLS and 0 <= row < self.current_rows:
-            self._current_grid[row][col].damage()
-
-    def repair_window(self, col, row, is_super=False):
-        if 0 <= col < GRID_COLS and 0 <= row < self.current_rows:
-            return self._current_grid[row][col].repair(is_super)
-        return False, False
+    def floor_at_y(self, world_y: float) -> Floor | None:
+        for floor in self.floors:
+            if floor.top_y <= world_y < floor.bottom_y:
+                return floor
+        return None
 
     @property
-    def current_rows(self):
-        return len(self._current_grid)
+    def broken_count(self) -> int:
+        """Broken cells in the active section."""
+        return sum(
+            cell.is_broken
+            for floor in self.section_floors()
+            for cell in floor.cells
+        )
 
-    def is_section_clear(self):
-        for row in self._current_grid:
-            for window in row:
-                if window.state != WindowState.INTACT:
-                    return False
-        return True
+    def damage(self, cell: WindowCell, is_heavy: bool) -> None:
+        cell.damage(is_heavy, self._rng)
 
-    def is_level_clear(self):
-        return self.current_section >= len(self.sections)
+    def fix(self, cell: WindowCell) -> int:
+        """Fix a cell and return the score: 0 if intact, 500 if last broken, else 100."""
+        if not cell.is_broken:
+            return 0
+        cell.fix()
+        return FIX_LAST_WINDOW_SCORE if self.broken_count == 0 else FIX_SCORE
 
-    def advance_section(self):
-        self.current_section += 1
+    def is_section_clear(self) -> bool:
+        return self.broken_count == 0
 
-    def get_window_pixel_pos(self, col, row):
-        x = GRID_LEFT + col * WINDOW_SPACING_X
-        y = GRID_TOP + (self.current_rows - 1 - row) * WINDOW_SPACING_Y
-        return x, y
+    @property
+    def is_last_section(self) -> bool:
+        return self.section_index == self.section_count - 1
 
-    def draw(self, screen, sprite_sheet, palette):
-        # Draw brick wall background
-        try:
-            wall = sprite_sheet.get_sprite("wall_brick", 0, palette)
-            for y in range(0, GAME_HEIGHT, wall.get_height()):
-                for x in range(0, GAME_WIDTH, wall.get_width()):
-                    screen.blit(wall, (x, y))
-        except (KeyError, IndexError):
-            screen.fill((139, 69, 19))
+    def advance_section(self) -> None:
+        if self.is_last_section:
+            raise RuntimeError("already on the last section")
+        self.section_index += 1
 
-        # Draw windows
-        for row in range(self.current_rows):
-            for col in range(GRID_COLS):
-                state = self.get_window_state(col, row)
-                sprite_name = WINDOW_SPRITE_MAP[state]
-                wx, wy = self.get_window_pixel_pos(col, row)
-                try:
-                    sprite = sprite_sheet.get_sprite(sprite_name, 0, palette)
-                    screen.blit(sprite, (wx, wy))
-                except (KeyError, IndexError):
-                    color = {
-                        WindowState.INTACT: (100, 149, 237),
-                        WindowState.CRACKED: (200, 200, 100),
-                        WindowState.BROKEN: (50, 50, 50),
-                    }[state]
-                    pygame.draw.rect(screen, color,
-                        (wx, wy, WINDOW_WIDTH, WINDOW_HEIGHT))
-                    pygame.draw.rect(screen, (200, 200, 200),
-                        (wx, wy, WINDOW_WIDTH, WINDOW_HEIGHT), 2)
+    def ledge_y(self, section_index: int | None = None) -> int:
+        """World y of the top of the section's top floor."""
+        return self.section_floors(section_index)[-1].top_y
+
+    def scroll_target(self, section_index: int) -> int:
+        """Camera scroll that brings the section to the screen: heights of floors below it."""
+        return sum(
+            floor.height
+            for floor in self.floors[:section_index * FLOORS_PER_SECTION]
+        )
