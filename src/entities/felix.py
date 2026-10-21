@@ -68,6 +68,11 @@ class Felix:
         return self.lives > 0
 
     @property
+    def is_game_over(self):
+        """True once the last life's death sequence has played out."""
+        return self.state == FelixState.DEATH_HANDLER and self.lives <= 0
+
+    @property
     def is_invulnerable(self):
         return self._invulnerable_ticks_remaining > 0
 
@@ -288,8 +293,10 @@ class Felix:
 
     def _tick_death_handler(self, building, sound):
         if self.lives <= 0:
-            if sound:
+            # Felix stays here until the game scene ends the game; play the sting once.
+            if self._state_ticks == 0 and sound:
                 sound.play_sfx("death")
+            self._state_ticks += 1
             return
         if sound:
             sound.play_sfx("felix_move")

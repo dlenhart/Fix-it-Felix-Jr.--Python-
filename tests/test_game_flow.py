@@ -15,7 +15,10 @@ from constants import GAME_HEIGHT, GAME_WIDTH  # noqa: E402
 from input_handler import Action  # noqa: E402
 from scene_manager import SceneManager  # noqa: E402
 from scenes.game_over_scene import GameOverScene  # noqa: E402
+from entities.felix import FelixState  # noqa: E402
+from entities.ralph import RalphState  # noqa: E402
 from scenes.game_phases import (  # noqa: E402
+    READY_PAUSE_TICKS, SECTION_SCROLL_SPEED,
     LevelEndPhase, LevelStartPhase, PlayPhase, SectionClearPhase,
 )
 from scenes.game_scene import GameScene  # noqa: E402
@@ -87,6 +90,23 @@ def test_level_start_shows_ready_pause_after_climb():
     assert ready_ticks == 180
 
 
+def test_ralph_idles_through_ready_countdown_then_patrols():
+    _, game = make_game()
+    tick_until(game, lambda: game.phase.is_ready_countdown)
+    ralph = game.ralph
+    before = (ralph.x, ralph.y, ralph.state)
+    assert ralph.state == RalphState.IDLE
+    for _ in range(READY_PAUSE_TICKS - 1):
+        game.tick(MockInput())
+        assert (ralph.x, ralph.y, ralph.state) == before
+    assert isinstance(game.phase, LevelStartPhase)
+
+    game.tick(MockInput())
+    assert isinstance(game.phase, PlayPhase)
+    assert ralph.state == RalphState.WALK
+    assert (ralph.x, ralph.y) == (120, game.building.ledge_y())
+
+
 def test_fixing_all_windows_clears_section_scrolls_and_resumes():
     _, game = make_game()
     reach_play(game)
@@ -118,6 +138,40 @@ def test_last_section_goes_to_level_end_then_next_level_keeps_lives_and_score():
     assert (game.felix.score, game.felix.lives) == (1234, 7)
 
 
+def hammer_for(game, tick_count):
+    for _ in range(tick_count):
+        game.tick(MockInput([Action.JUMP]))
+
+
+def test_no_hits_or_scoring_during_level_start():
+    _, game = make_game()
+    game.tick(MockInput())
+    door = game.building.cell(0, 2)
+    assert (game.felix.local_row, game.felix.column) == (0, 2)
+    assert door.is_broken
+    lives_before, score_before = game.felix.lives, game.felix.score
+    spawn_brick_on_felix(game)
+    hammer_for(game, 60)
+    assert isinstance(game.phase, LevelStartPhase)
+    assert door.is_broken
+    assert (game.felix.lives, game.felix.score) == (lives_before, score_before)
+
+
+def test_no_hits_during_level_end():
+    _, game = make_game()
+    reach_play(game)
+    for _ in range(game.building.section_count):
+        fix_section(game)
+        tick_until(game, lambda: not isinstance(game.phase, PlayPhase))
+        tick_until(game, lambda: isinstance(game.phase, (PlayPhase, LevelEndPhase)))
+    assert isinstance(game.phase, LevelEndPhase)
+    lives_before, score_before = game.felix.lives, game.felix.score
+    spawn_brick_on_felix(game)
+    hammer_for(game, 60)
+    assert isinstance(game.phase, LevelEndPhase)
+    assert (game.felix.lives, game.felix.score) == (lives_before, score_before)
+
+
 def test_no_hits_or_scoring_outside_play_phase():
     _, game = make_game()
     reach_play(game)
@@ -126,8 +180,7 @@ def test_no_hits_or_scoring_outside_play_phase():
     assert isinstance(game.phase, SectionClearPhase)
     lives_before, score_before = game.felix.lives, game.felix.score
     spawn_brick_on_felix(game)
-    for _ in range(30):
-        game.tick(MockInput([Action.JUMP]))
+    hammer_for(game, 30)
     assert isinstance(game.phase, SectionClearPhase)
     assert (game.felix.lives, game.felix.score) == (lives_before, score_before)
 
@@ -145,11 +198,18 @@ def test_game_over_fires_once():
 
     manager.replace = counting_replace
     spawn_brick_on_felix(game)
-    spawn_brick_on_felix(game)
     game.tick(MockInput())
-    game.end_game()
+    assert game.felix.state == FelixState.STUNNED
+    assert manager.current is game  # Ruling 13: not on the fatal hit
+
+    tick_until(game, lambda: manager.current is not game)
+    assert game.felix.state == FelixState.DEATH_HANDLER
     assert len(replace_calls) == 1
     assert isinstance(manager.current, GameOverScene)
+
+    game.end_game()
+    game.tick(MockInput())
+    assert len(replace_calls) == 1
 
 
 def test_pause_freezes_scroll_and_climb():
@@ -171,7 +231,10 @@ def test_pause_freezes_scroll_and_climb():
         game.tick(MockInput())
     assert frozen_state() == before
 
-    game.tick(MockInput([Action.PAUSE]))
+    ralph_before = (game.ralph.x, game.ralph.y)
+    game.tick(MockInput([Action.PAUSE]))  # the unpausing tick also runs the phase
+    ralph_moved = abs(game.ralph.x - ralph_before[0]) + abs(game.ralph.y - ralph_before[1])
+    assert ralph_moved == 1
     tick_until(game, lambda: game.phase.is_scrolling)
     game.tick(MockInput([Action.PAUSE]))
     scroll_before = game.camera.scroll_y
@@ -180,8 +243,8 @@ def test_pause_freezes_scroll_and_climb():
     assert game.camera.scroll_y == scroll_before
 
     game.tick(MockInput([Action.PAUSE]))
-    game.tick(MockInput())
-    assert game.camera.scroll_y != scroll_before
+    target = game.building.scroll_target(game.building.section_index)
+    assert game.camera.scroll_y == min(scroll_before + SECTION_SCROLL_SPEED, target)
 
 
 def test_draw_renders_every_phase():

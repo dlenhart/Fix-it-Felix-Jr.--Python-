@@ -36,6 +36,12 @@ class GamePhase:
         """Draw phase text over the playfield. Default: nothing."""
 
 
+def _enter_play(game: GameScene) -> GamePhase:
+    """Hand off to play: Ralph leaves his idle pose and starts the patrol from the ledge."""
+    game.ralph.place_on_ledge(game.building)
+    return PlayPhase()
+
+
 def _draw_centered_message(game: GameScene, screen: pygame.Surface, message: str) -> None:
     text = game.font.render_text(message, color_row=0)
     scaled = scale_text_to_fit(text, GAME_WIDTH - 16, preferred_scale=2.0)
@@ -61,17 +67,22 @@ class LevelStartPhase(GamePhase):
                 first_heavy_cell=game.building.cell(DOOR_LOCAL_ROW, DOOR_COLUMN))
             self.has_climb_started = True
 
-        # Bricks Ralph would throw during the intro are discarded.
-        events = game.ralph.tick(game.building, game.level)
         if not self.is_ready_countdown:
-            if events.is_climb_finished:
-                self.ready_ticks_remaining = READY_PAUSE_TICKS
+            self._tick_climb(game)
             return None
 
+        # Ralph stands idle and unticked through the countdown (Ruling 14).
         self.ready_ticks_remaining -= 1
         if self.ready_ticks_remaining > 0:
             return None
-        return PlayPhase()
+        return _enter_play(game)
+
+    def _tick_climb(self, game: GameScene) -> None:
+        events = game.ralph.tick(game.building, game.level)
+        if not events.is_climb_finished:
+            return
+        game.ralph.idle()
+        self.ready_ticks_remaining = READY_PAUSE_TICKS
 
     def draw_overlay(self, game: GameScene, screen: pygame.Surface) -> None:
         if not self.is_ready_countdown:
@@ -84,16 +95,17 @@ class PlayPhase(GamePhase):
 
     def tick(self, game: GameScene) -> GamePhase | None:
         game.felix.tick(game.input_handler, game.building, game.sound)
+        # Ruling 13: the game ends after the last death plays out, not on the fatal hit.
+        if game.felix.is_game_over:
+            game.end_game()
+            return None
 
         events = game.ralph.tick(game.building, game.level)
         for brick_x, brick_y in events.brick_spawns:
             game.bricks.spawn(brick_x, brick_y)
         # events.is_drop_hazard_requested is ignored until Task 10 adds hazards.
 
-        was_felix_hit = game.bricks.tick(game.building, game.felix, game.level, game.sound)
-        if was_felix_hit and not game.felix.is_alive:
-            game.end_game()
-            return None
+        game.bricks.tick(game.building, game.felix, game.level, game.sound)
 
         if game.building.is_section_clear():
             return SectionClearPhase()
@@ -117,17 +129,23 @@ class SectionClearPhase(GamePhase):
         if not self.has_started:
             self._start(game)
 
-        # Ticked throughout for its animation; it throws nothing while posing or climbing.
-        events = game.ralph.tick(game.building, game.level)
-
         if self.is_posing:
+            # Ticked for the pose animation; Ralph throws nothing while posing.
+            game.ralph.tick(game.building, game.level)
             return self._tick_pose(game)
         if self.is_climbing:
-            if events.is_climb_finished:
-                self.is_climbing = False
-                self.is_scrolling = True
+            self._tick_climb(game)
             return None
+        # Ralph stands idle and unticked through the scroll (Ruling 14).
         return self._tick_scroll(game)
+
+    def _tick_climb(self, game: GameScene) -> None:
+        events = game.ralph.tick(game.building, game.level)
+        if not events.is_climb_finished:
+            return
+        game.ralph.idle()
+        self.is_climbing = False
+        self.is_scrolling = True
 
     def _start(self, game: GameScene) -> None:
         self.has_started = True
@@ -154,7 +172,7 @@ class SectionClearPhase(GamePhase):
         if not has_arrived:
             return None
         game.felix.place_at(0, game.felix.column, game.building)
-        return PlayPhase()
+        return _enter_play(game)
 
     def draw_overlay(self, game: GameScene, screen: pygame.Surface) -> None:
         if not self.is_posing:
