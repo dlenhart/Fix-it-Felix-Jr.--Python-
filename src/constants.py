@@ -49,20 +49,18 @@ FELIX_MAX_HORIZONTAL_SPEED = 2.0       # _DAT_00416b40
 FELIX_INITIAL_VERTICAL_VEL = 0.2       # _DAT_00416b88
 FELIX_JUMP_INITIAL_X_VEL = -5.0        # _DAT_00416c00
 FELIX_JUMP_ARC_DIVISOR = 10.0          # _DAT_00416c04
-FELIX_FALL_TERMINAL_VEL = 8.0          # _DAT_00416b58
 FELIX_HAMMER_START_OFFSET = -7.0       # _DAT_00416b68
 FELIX_WALK_START_X_OFFSET = -6.0       # _DAT_00416b08
-FELIX_STUN_KNOCKBACK_Y = 480.0         # 0x1e0
+FELIX_STUN_START_BELOW = 160           # [ASSUMED] px below the anchor's feet; the old screen-y 480 minus the 320 screen height
 
 # Estimated (runtime-initialized zeros in binary — calibrate during playtesting)
-FELIX_HORIZONTAL_ACCEL = 0.5
+FELIX_HORIZONTAL_ACCEL = 0.5           # [ASSUMED] _DAT_00416b80 is runtime-initialized
 FELIX_VERTICAL_MOVE_RATE = 1.5         # 36px row spacing in 24 ticks = 0.4s
-FELIX_GRAVITY_ACCEL = 0.5
 HAMMER_ANIM_RATE = 0.5                 # -7.0 offset to 0 in 14 ticks = 0.23s
-BONUS_LIFE_THRESHOLD = 10000
+BONUS_LIFE_THRESHOLD = 5000            # [EXE string "BONUS LIFE EVERY 5000 PTS"]
+INVULNERABLE_TICKS = 480               # [EXE] 0x4217a4 timer (pie)
 
 # Estimated durations — authored in seconds so they survive tick-rate changes
-SUPER_DURATION_TICKS = seconds_to_ticks(10.0)
 HAMMER_EXTENDED_TICKS = seconds_to_ticks(0.1)
 STUN_HOLD_TICKS = seconds_to_ticks(1.0)      # pause before rising back up
 DYING_TICKS = seconds_to_ticks(1.0)
