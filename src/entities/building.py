@@ -44,6 +44,18 @@ GLASS_OFFSET_X = 6  # [EXE] FUN_00404ea0 example rect
 GLASS_WIDTH = 12  # [EXE] FUN_00404ea0 example rect
 GLASS_HEIGHT = 23  # [EXE] FUN_00404ea0 example rect
 
+# [ATLAS] rows between a cell piece's bottom and the bottom of its visible sill,
+# measured in felix0.png. Pane pieces 14/15/16 (24x48) end their sill ledge
+# (rows 37-42) above 5 transparent rows. The door (piece 2, steps) and the
+# arched window (piece 6, balustrade) are opaque to their bottom row.
+SILL_RISE_ABOVE_PIECE_BOTTOM: dict[CellKind, int] = {
+    CellKind.PLAIN: 5,
+    CellKind.PEDIMENT_A: 5,
+    CellKind.PEDIMENT_B: 5,
+    CellKind.DOOR: 0,
+    CellKind.ARCHED: 0,
+}
+
 
 class WindowCell:
     """One window slot on a floor, with pane or door damage state."""
@@ -155,6 +167,14 @@ class Building:
 
     def _floor_for_cell(self, cell: WindowCell) -> Floor:
         return self.floors[cell.floor_index]
+
+    def sill_y(self, cell: WindowCell) -> int:
+        """World y where Felix's feet stand on the cell: the bottom of its visible sill.
+
+        The exe keeps a per-cell sill y (cell+0x74); cell pieces are drawn
+        bottom-aligned on the floor, so the sill sits a measured rise above it.
+        """
+        return self._floor_for_cell(cell).bottom_y - SILL_RISE_ABOVE_PIECE_BOTTOM[cell.kind]
 
     def glass_rect(self, cell: WindowCell) -> pygame.Rect:
         """World-space rect of the cell's breakable glass.

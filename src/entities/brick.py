@@ -110,7 +110,7 @@ class BrickField:
                 if felix.is_invulnerable:
                     brick.start_bounce(self._rng)
                     continue
-                # The brick vanishes even if Felix was already stunned (ruling R3).
+                # The brick vanishes even if Felix is already in the hit sequence (ruling R3).
                 was_felix_hit |= bool(felix.hit(sound))
                 brick.is_active = False
                 continue

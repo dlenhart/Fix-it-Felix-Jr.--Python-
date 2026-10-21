@@ -99,6 +99,10 @@ class PlayPhase(GamePhase):
         if game.felix.is_game_over:
             game.end_game()
             return None
+        # FUN_0040e1d0 freezes Ralph and every brick until the respawn unfreezes
+        # them (FUN_0040e220); they stay drawn where they stopped.
+        if game.felix.is_in_hit_sequence:
+            return None
 
         events = game.ralph.tick(game.building, game.level)
         for brick_x, brick_y in events.brick_spawns:

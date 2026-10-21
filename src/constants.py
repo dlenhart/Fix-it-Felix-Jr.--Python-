@@ -51,7 +51,6 @@ FELIX_JUMP_INITIAL_X_VEL = -5.0        # _DAT_00416c00
 FELIX_JUMP_ARC_DIVISOR = 10.0          # _DAT_00416c04
 FELIX_HAMMER_START_OFFSET = -7.0       # _DAT_00416b68
 FELIX_WALK_START_X_OFFSET = -6.0       # _DAT_00416b08
-FELIX_STUN_START_BELOW = 160           # [ASSUMED] px below the anchor's feet; the old screen-y 480 minus the 320 screen height
 
 # Estimated (runtime-initialized zeros in binary — calibrate during playtesting)
 FELIX_HORIZONTAL_ACCEL = 0.5           # [ASSUMED] _DAT_00416b80 is runtime-initialized
@@ -62,8 +61,6 @@ INVULNERABLE_TICKS = 480               # [EXE] 0x4217a4 timer (pie)
 
 # Estimated durations — authored in seconds so they survive tick-rate changes
 HAMMER_EXTENDED_TICKS = seconds_to_ticks(0.1)
-STUN_HOLD_TICKS = seconds_to_ticks(1.0)      # pause before rising back up
-DYING_TICKS = seconds_to_ticks(1.0)
 SPRITE_FRAME_HOLD_TICKS = seconds_to_ticks(0.15)  # walk/flap/idle anim cadence
 
 # Ralph state machine. [EXE] 0x40e1a4 (state table), FUN_0040d870 (patrol/pound),

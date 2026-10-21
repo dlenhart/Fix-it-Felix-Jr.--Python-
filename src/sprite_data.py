@@ -4,6 +4,19 @@ BRICK_FRAMES = (5, 4)
 SILL_OBSTACLE_FRAME = 214
 LIFE_ICON_PIECE = 17
 
+# Felix's hit animations, read from the exe's animation table at 0x419800
+# (12-byte entries; each points at 10-byte frame records of
+# right-facing frame, left-facing frame or -1, hold, origin x, origin y).
+# Holds are the exe's raw counts; FUN_0040ed40 shows each frame hold + 1 ticks.
+# [EXE] anim 15 (FUN_0040ca00, lives remain), records at 0x418e50: arms flung out.
+FELIX_HIT_FRAMES_RIGHT = (34, 35, 34, 35, 34, 35, 34, 35)
+FELIX_HIT_FRAMES_LEFT = (64, 65, 64, 65, 64, 65, 64, 65)
+FELIX_HIT_FRAME_HOLD_TICKS = 5
+# [EXE] anim 19 (FUN_0040ca00, last life), records at 0x418ee0: Felix tumbles,
+# lands flat (72), then lies with the halo (73, 74). It has no left-facing set.
+FELIX_FINAL_HIT_FRAMES = (66, 67, 68, 69, 70, 67, 71, 72, 73, 74)
+FELIX_FINAL_HIT_FRAME_HOLD_TICKS = (30, 12, 12, 12, 12, 12, 12, 2, 16, 0)
+
 SPRITES = {
     # Building tiles
     # Pure-brick region inside the building art, clear of its corner pillar
@@ -35,7 +48,6 @@ SPRITES = {
     # Strike = hammer swung out sideways; bbox includes the detached impact sparkle
     "felix_strike_right": [(298, 232, 35, 32)],
     "felix_strike_left": [(299, 328, 35, 32)],
-    "felix_stunned": [(339, 231, 24, 33)],
     "felix_celebrate": [(3, 279, 18, 33), (35, 277, 16, 35)],
     "felix_head": [(68, 232, 12, 14)],
 

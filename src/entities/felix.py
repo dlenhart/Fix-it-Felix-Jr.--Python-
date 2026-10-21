@@ -2,15 +2,19 @@ import math
 import enum
 import pygame
 from input_handler import Action
-from sprite_data import FELIX_HEAD_CENTER_X
+from sprite_data import (
+    FELIX_HEAD_CENTER_X,
+    FELIX_HIT_FRAMES_RIGHT, FELIX_HIT_FRAMES_LEFT, FELIX_HIT_FRAME_HOLD_TICKS,
+    FELIX_FINAL_HIT_FRAMES, FELIX_FINAL_HIT_FRAME_HOLD_TICKS,
+)
 from entities.building import FIX_LAST_WINDOW_SCORE
-from level_config import FLOORS_PER_SECTION
+from level_config import FLOORS_PER_SECTION, STREET_Y
 from constants import (
     INITIAL_LIVES, BONUS_LIFE_THRESHOLD, INVULNERABLE_TICKS,
     FELIX_MAX_HORIZONTAL_SPEED, FELIX_HORIZONTAL_ACCEL,
-    FELIX_HAMMER_START_OFFSET, FELIX_STUN_START_BELOW,
+    FELIX_HAMMER_START_OFFSET,
     FELIX_VERTICAL_MOVE_RATE, HAMMER_ANIM_RATE,
-    HAMMER_EXTENDED_TICKS, STUN_HOLD_TICKS, DYING_TICKS, SPRITE_FRAME_HOLD_TICKS,
+    HAMMER_EXTENDED_TICKS, SPRITE_FRAME_HOLD_TICKS,
 )
 
 COLUMN_COUNT = 5
@@ -18,8 +22,22 @@ RESPAWN_LOCAL_ROW = 0
 RESPAWN_COLUMN = 2
 HITBOX_WIDTH = 12   # [ASSUMED]
 HITBOX_HEIGHT = 28  # [ASSUMED]
-STUN_RISE_SPEED = 8.0
 INVULNERABLE_BLINK_TICKS = 4
+
+FELIX_HIT_FALL_GRAVITY = 0.33  # [EXE] double at 0x416be8, FUN_0040c1a0
+FELIX_HIT_FALL_BELOW_STREET = 0x28  # [EXE] FUN_0040c1a0: building bottom + 0x28
+FELIX_RESPAWN_DELAY_TICKS = 60  # [EXE] FUN_0040c1a0 (0x3c)
+FELIX_FINAL_HIT_SETTLE_FRAME_INDEX = 7  # [EXE] FUN_0040c1a0 waits for anim frame 7
+FELIX_GAME_OVER_DELAY_TICKS = 120  # [EXE] FUN_0040c1a0 (0x78) before the game-over state
+
+
+def _frame_display_ticks(hold_ticks):
+    # FUN_0040ed40 counts a frame's hold down to zero before advancing,
+    # so each frame stays up for hold + 1 ticks.
+    return hold_ticks + 1
+
+
+HIT_ANIM_TICKS = len(FELIX_HIT_FRAMES_RIGHT) * _frame_display_ticks(FELIX_HIT_FRAME_HOLD_TICKS)
 
 
 class FelixState(enum.Enum):
@@ -28,10 +46,24 @@ class FelixState(enum.Enum):
     JUMPING = 4
     HAMMERING = 5
     HAMMER_EXTENDED = 6
-    STUNNED = 8
-    DYING = 9
-    DEATH_HANDLER = 10
+    HIT_ANIM = 8
+    HIT_FALL = 9
+    HIT_RESPAWN_WAIT = 10
     CELEBRATING = 11
+    FINAL_HIT_ANIM = 12
+    FINAL_HIT_HOLD = 13
+    GAME_OVER = 14
+
+
+HIT_SEQUENCE_STATES = (
+    FelixState.HIT_ANIM,
+    FelixState.HIT_FALL,
+    FelixState.HIT_RESPAWN_WAIT,
+    FelixState.FINAL_HIT_ANIM,
+    FelixState.FINAL_HIT_HOLD,
+    FelixState.GAME_OVER,
+)
+HIDDEN_STATES = (FelixState.HIT_RESPAWN_WAIT, FelixState.GAME_OVER)
 
 
 class Felix:
@@ -51,6 +83,7 @@ class Felix:
         self._prev_pos_x = 0.0
         self._prev_pos_y = 0.0
         self._vel_x = 0.0
+        self._vel_y = 0.0
         self._walk_direction = 0
         self._walk_origin_column = 0
         self._target_column = 0
@@ -60,6 +93,7 @@ class Felix:
         self._invulnerable_ticks_remaining = 0
         self._hammer_offset = 0.0
         self._anim_ticks = 0
+        self._hit_anim_ticks = 0
         self._next_bonus_at = BONUS_LIFE_THRESHOLD
         self._is_placed = False
 
@@ -69,8 +103,13 @@ class Felix:
 
     @property
     def is_game_over(self):
-        """True once the last life's death sequence has played out."""
-        return self.state == FelixState.DEATH_HANDLER and self.lives <= 0
+        """True once the last life's hit sequence has played out."""
+        return self.state == FelixState.GAME_OVER
+
+    @property
+    def is_in_hit_sequence(self):
+        """True from a landed hit until the respawn; for good after the last life's hit."""
+        return self.state in HIT_SEQUENCE_STATES
 
     @property
     def is_invulnerable(self):
@@ -95,15 +134,25 @@ class Felix:
             self._next_bonus_at += BONUS_LIFE_THRESHOLD
 
     def hit(self, sound=None):
-        """Knock Felix down and cost a life. Returns False if it did not land."""
+        """Start the hit sequence (FUN_0040ca00). Returns False if it did not land.
+
+        The life is lost at the respawn, as in the exe; on the last life Felix
+        never respawns and lives drop to 0 when the sequence ends.
+        """
         if self.is_invulnerable:
             return False
-        if self.state in (FelixState.STUNNED, FelixState.DYING, FelixState.DEATH_HANDLER):
+        if self.is_in_hit_sequence:
             return False
-        self.state = FelixState.STUNNED
-        self._state_ticks = 0
         self._vel_x = 0.0
-        self.lives -= 1
+        self._vel_y = 0.0
+        self._state_ticks = 0
+        self._hit_anim_ticks = 0
+        if self.lives > 1:
+            self.state = FelixState.HIT_ANIM
+            return True
+        self.state = FelixState.FINAL_HIT_ANIM
+        if sound:
+            sound.play_sfx("death")
         return True
 
     def activate_invulnerability(self, sound=None):
@@ -150,12 +199,16 @@ class Felix:
             self._tick_hammering(sound)
         elif self.state == FelixState.HAMMER_EXTENDED:
             self._tick_hammer_extended(building, sound)
-        elif self.state == FelixState.STUNNED:
-            self._tick_stunned(building)
-        elif self.state == FelixState.DYING:
-            self._tick_dying()
-        elif self.state == FelixState.DEATH_HANDLER:
-            self._tick_death_handler(building, sound)
+        elif self.state == FelixState.HIT_ANIM:
+            self._tick_hit_anim()
+        elif self.state == FelixState.HIT_FALL:
+            self._tick_hit_fall()
+        elif self.state == FelixState.HIT_RESPAWN_WAIT:
+            self._tick_hit_respawn_wait(building)
+        elif self.state == FelixState.FINAL_HIT_ANIM:
+            self._tick_final_hit_anim()
+        elif self.state == FelixState.FINAL_HIT_HOLD:
+            self._tick_final_hit_hold()
 
     def _tick_idle(self, input_handler, building, sound):
         self._snap_to_anchor(building)
@@ -267,47 +320,51 @@ class Felix:
         if sound:
             sound.play_sfx("window_fixed" if points == FIX_LAST_WINDOW_SCORE else "hammer_hit")
 
-    def _tick_stunned(self, building):
-        self._state_ticks += 1
-        anchor_x, anchor_y = self._anchor(building, self.local_row, self.column)
-        if self._state_ticks == 1:
-            self._pos_x = anchor_x
-            self._pos_y = anchor_y + FELIX_STUN_START_BELOW
-        if self._state_ticks < STUN_HOLD_TICKS:
+    def _tick_hit_anim(self):
+        self._hit_anim_ticks += 1
+        if self._hit_anim_ticks < HIT_ANIM_TICKS:
             return
-        self._pos_y -= STUN_RISE_SPEED
-        if self._pos_y > anchor_y:
-            return
-        self._snap_to_anchor(building)
-        if self.lives <= 0:
-            self.state = FelixState.DYING
-            self._state_ticks = 0
-        else:
-            self.state = FelixState.IDLE
+        self.state = FelixState.HIT_FALL
+        self._vel_y = 0.0
 
-    def _tick_dying(self):
-        self._state_ticks += 1
-        if self._state_ticks >= DYING_TICKS:
-            self.state = FelixState.DEATH_HANDLER
-            self._state_ticks = 0
-
-    def _tick_death_handler(self, building, sound):
-        if self.lives <= 0:
-            # Felix stays here until the game scene ends the game; play the sting once.
-            if self._state_ticks == 0 and sound:
-                sound.play_sfx("death")
-            self._state_ticks += 1
+    def _tick_hit_fall(self):
+        self._vel_y += FELIX_HIT_FALL_GRAVITY
+        self._pos_y += self._vel_y
+        if self._pos_y <= STREET_Y + FELIX_HIT_FALL_BELOW_STREET:
             return
-        if sound:
-            sound.play_sfx("felix_move")
-        self.place_at(RESPAWN_LOCAL_ROW, RESPAWN_COLUMN, building)
+        self.state = FelixState.HIT_RESPAWN_WAIT
+        self._state_ticks = FELIX_RESPAWN_DELAY_TICKS
+
+    def _tick_hit_respawn_wait(self, building):
+        self._state_ticks -= 1
+        if self._state_ticks > 0:
+            return
+        self.lives -= 1
+        # The same cell he was on, not the one a walk or jump was heading for.
+        self.place_at(self.local_row, self.column, building)
+
+    def _tick_final_hit_anim(self):
+        self._hit_anim_ticks += 1
+        frame_index = _frame_index_after(FELIX_FINAL_HIT_FRAME_HOLD_TICKS, self._hit_anim_ticks)
+        if frame_index < FELIX_FINAL_HIT_SETTLE_FRAME_INDEX:
+            return
+        self.state = FelixState.FINAL_HIT_HOLD
+        self._state_ticks = FELIX_GAME_OVER_DELAY_TICKS
+
+    def _tick_final_hit_hold(self):
+        # The final animation keeps playing (it lands on the halo frame) while the hold runs.
+        self._hit_anim_ticks += 1
+        self._state_ticks -= 1
+        if self._state_ticks > 0:
+            return
+        self.lives = 0
+        self.state = FelixState.GAME_OVER
 
     @staticmethod
     def _anchor(building, local_row, column):
-        """Standing point: the cell's center x on its floor's bottom y."""
+        """Standing point: the cell's center x on its sill (the exe's cell+0x74)."""
         cell = building.cell(local_row, column)
-        floor = building.section_floors()[local_row]
-        return cell.center_x, float(floor.bottom_y)
+        return cell.center_x, float(building.sill_y(cell))
 
     def _current_cell(self, building):
         return building.cell(self.local_row, self.column)
@@ -315,9 +372,16 @@ class Felix:
     def _snap_to_anchor(self, building):
         self._pos_x, self._pos_y = self._anchor(building, self.local_row, self.column)
 
+    def _hit_frame_id(self):
+        if self.state in (FelixState.FINAL_HIT_ANIM, FelixState.FINAL_HIT_HOLD):
+            index = _frame_index_after(FELIX_FINAL_HIT_FRAME_HOLD_TICKS, self._hit_anim_ticks)
+            return FELIX_FINAL_HIT_FRAMES[index]
+        frames = FELIX_HIT_FRAMES_RIGHT if self.facing_right else FELIX_HIT_FRAMES_LEFT
+        holds = (FELIX_HIT_FRAME_HOLD_TICKS,) * len(frames)
+        # The fall keeps showing the animation's last frame.
+        return frames[_frame_index_after(holds, self._hit_anim_ticks)]
+
     def _sprite_name_and_frame(self, sprites):
-        if self.state == FelixState.STUNNED:
-            return "felix_stunned", 0
         if self.state == FelixState.HAMMERING:
             return ("felix_hammer_right" if self.facing_right else "felix_hammer_left"), 0
         if self.state == FelixState.HAMMER_EXTENDED:
@@ -336,7 +400,12 @@ class Felix:
             (self._invulnerable_ticks_remaining // INVULNERABLE_BLINK_TICKS) % 2 == 1
         if is_blink_hidden:
             return
+        if self.state in HIDDEN_STATES:
+            return
         center_x, feet_y = self.world_pos(alpha)
+        if self.is_in_hit_sequence:
+            self._draw_hit_frame(screen, sprites, camera, palette, center_x, feet_y, alpha)
+            return
         sprite_name, frame = self._sprite_name_and_frame(sprites)
         sprite = sprites.get_sprite(sprite_name, frame, palette)
         if sprite_name in FELIX_HEAD_CENTER_X:
@@ -345,3 +414,20 @@ class Felix:
             left = center_x - sprite.get_width() / 2
         top = camera.to_screen_y(feet_y, alpha) - sprite.get_height()
         screen.blit(sprite, (round(left), top))
+
+    def _draw_hit_frame(self, screen, sprites, camera, palette, center_x, feet_y, alpha):
+        sprite = sprites.get_frame(self._hit_frame_id(), palette)
+        # The hit frames sit off-center in their atlas cells (frame 64's body is
+        # 5px right of center), so center the visible art to keep Felix planted.
+        left = center_x - sprite.get_bounding_rect().centerx
+        top = camera.to_screen_y(feet_y, alpha) - sprite.get_height()
+        screen.blit(sprite, (round(left), top))
+
+
+def _frame_index_after(hold_ticks_per_frame, elapsed_ticks):
+    """Frame index a play-once exe animation shows after elapsed ticks; it stops on the last frame."""
+    for index, hold_ticks in enumerate(hold_ticks_per_frame):
+        elapsed_ticks -= _frame_display_ticks(hold_ticks)
+        if elapsed_ticks < 0:
+            return index
+    return len(hold_ticks_per_frame) - 1

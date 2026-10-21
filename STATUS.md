@@ -1,6 +1,26 @@
 # Fix-It Felix Jr. — Implementation Status
 
-_Last updated: 2026-10-19_
+_Last updated: 2026-10-21_
+
+## Gameplay rebuild in progress (branch `gameplay-rebuild`)
+
+The game layer is being rebuilt from Ghidra pass 4, following `docs/superpowers/plans/2026-10-21-gameplay-rebuild.md`. Tasks 1–8 are done and reviewed. Task 8b, the playtest fix for Felix's hit sequence and sill height, is the latest change. Run it with `python3 src/main.py`.
+
+### Your playtest checklist (Task 8 checkpoint)
+
+**Already verified (2026-10-21):** Ralph's intro climb, "LEVEL 1" ready pause, Felix's movement, one-swing window fix, lives going down when hit, Ralph's patrol, HUD, and bricks bouncing off the ground.
+
+**Verify the new fixes:**
+- [ ] **Hit animation:** when a brick hits Felix, he plays a knocked-down animation in place, then falls off the building. He's gone for about 1 second, then reappears on the **same window**. The life comes off when he reappears, not at the moment of the hit.
+- [ ] **Ralph and bricks freeze** while Felix is in that hit sequence, and resume when he's back.
+- [ ] **Felix stands on the window sill**, with his feet on the sill rather than about 8px below it.
+
+**Still to verify from before:**
+- [ ] **Last life:** losing the final life plays the death animation, then GAME OVER, with no instant cut.
+- [ ] **Section clear:** fixing the last broken window on the bottom 4 floors shows "YOU FIXED IT!" and Ralph's pose. Then Ralph climbs up through the next section, wrecking windows, and the screen scrolls up. (Known gap: Felix drops off the bottom during the scroll and reappears, instead of moving up with it.)
+- [ ] **Level end:** after section 2, a short hold, then level 2 starts with your score and lives carried over. On level 2, bricks can occasionally crack windows.
+
+**Not built yet (no need to report):** Nicelanders, pies, birds, sill obstacles, Ralph's dropped objects (Tasks 9–10), and the roof/medal ending (Task 11). The intro cutscene is still the old one, which we'll revisit separately.
 
 ## Done — Tasks 1-14 (all reviewed, all committed)
 

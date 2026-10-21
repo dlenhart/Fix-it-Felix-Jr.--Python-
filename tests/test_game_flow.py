@@ -199,17 +199,72 @@ def test_game_over_fires_once():
     manager.replace = counting_replace
     spawn_brick_on_felix(game)
     game.tick(MockInput())
-    assert game.felix.state == FelixState.STUNNED
+    assert game.felix.state == FelixState.FINAL_HIT_ANIM
     assert manager.current is game  # Ruling 13: not on the fatal hit
 
     tick_until(game, lambda: manager.current is not game)
-    assert game.felix.state == FelixState.DEATH_HANDLER
+    assert game.felix.state == FelixState.GAME_OVER
+    assert game.felix.lives == 0
     assert len(replace_calls) == 1
     assert isinstance(manager.current, GameOverScene)
 
     game.end_game()
     game.tick(MockInput())
     assert len(replace_calls) == 1
+
+
+def frozen_world(game):
+    return ((game.ralph.x, game.ralph.y, game.ralph.state),
+            [(brick.x, brick.y) for brick in game.bricks._bricks])
+
+
+def test_hit_freezes_ralph_and_bricks_until_respawn():
+    _, game = make_game()
+    reach_play(game)
+    tick_until(game, lambda: game.bricks.live_count >= 2)
+    spawn_brick_on_felix(game)
+    game.tick(MockInput())
+    assert game.felix.state == FelixState.HIT_ANIM
+    lives_before = game.felix.lives
+    before = frozen_world(game)
+    assert before[1]  # other bricks are still in flight
+    while game.felix.is_in_hit_sequence:
+        game.tick(MockInput())
+        if game.felix.is_in_hit_sequence:
+            assert frozen_world(game) == before
+    assert isinstance(game.phase, PlayPhase)
+    assert game.felix.lives == lives_before - 1
+    game.tick(MockInput())
+    assert frozen_world(game) != before
+
+
+def test_final_hit_freezes_ralph_and_bricks():
+    _, game = make_game()
+    reach_play(game)
+    game.felix.lives = 1
+    tick_until(game, lambda: game.bricks.live_count >= 2)
+    spawn_brick_on_felix(game)
+    game.tick(MockInput())
+    before = frozen_world(game)
+    for _ in range(100):
+        game.tick(MockInput())
+        assert frozen_world(game) == before
+
+
+def test_draw_renders_hit_sequence():
+    _, game = make_game()
+    surface = pygame.Surface((GAME_WIDTH, GAME_HEIGHT))
+    reach_play(game)
+    for lives in (5, 1):
+        game.felix.lives = lives
+        spawn_brick_on_felix(game)
+        game.tick(MockInput())
+        assert game.felix.is_in_hit_sequence
+        for _ in range(400):
+            if not game.felix.is_in_hit_sequence or game.felix.is_game_over:
+                break
+            game.draw(surface, alpha=0.5)
+            game.tick(MockInput())
 
 
 def test_pause_freezes_scroll_and_climb():

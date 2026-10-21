@@ -58,12 +58,13 @@ def test_brick_hits_felix_once_and_vanishes():
     lives = felix.lives
     spawn_on_felix(field, felix)
     assert field.tick(building, felix, level=1) is True
-    assert felix.lives == lives - 1
+    assert felix.is_in_hit_sequence
+    assert felix.lives == lives  # the life is lost at the respawn (FUN_0040c1a0)
     assert field.live_count == 0
     assert field.tick(building, felix, level=1) is False
 
 
-def test_brick_vanishes_on_already_stunned_felix_without_second_hit():
+def test_brick_vanishes_on_felix_in_hit_sequence_without_second_hit():
     building, felix = make_world()
     field = BrickField(random.Random(0))
     spawn_on_felix(field, felix)

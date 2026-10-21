@@ -8,12 +8,16 @@ from random import Random
 import pygame
 pygame.init()
 
-from entities.felix import Felix, FelixState
+from entities.felix import (
+    Felix, FelixState, FELIX_HIT_FALL_GRAVITY, FELIX_RESPAWN_DELAY_TICKS,
+    FELIX_GAME_OVER_DELAY_TICKS, HIT_ANIM_TICKS,
+)
 from entities.building import Building
 from input_handler import Action
+from level_config import STREET_Y, CellKind
 from constants import (
     BONUS_LIFE_THRESHOLD, INVULNERABLE_TICKS, FELIX_MAX_HORIZONTAL_SPEED,
-    FELIX_STUN_START_BELOW, INITIAL_LIVES,
+    INITIAL_LIVES,
 )
 
 
@@ -70,11 +74,32 @@ def test_initial_state():
     assert not f.is_invulnerable
 
 
-def test_place_at_anchors_on_cell_center_and_floor_bottom():
+def test_place_at_anchors_on_cell_center_and_sill():
     f, b = make_felix(1, 3)
     x, y = f.world_pos()
     assert x == b.cell(1, 3).center_x
-    assert y == b.section_floors()[1].bottom_y
+    assert y == b.sill_y(b.cell(1, 3))
+
+
+def test_feet_on_sill_for_every_cell_kind():
+    b = Building(1, Random(0))
+    for local_row in range(4):
+        for column in range(5):
+            f = Felix()
+            f.place_at(local_row, column, b)
+            assert f.world_pos()[1] == b.sill_y(b.cell(local_row, column))
+
+
+def test_sill_y_measured_rise_above_floor_bottom():
+    b = Building(1, Random(0))
+    floor = b.section_floors()[0]
+    assert b.sill_y(b.cell(0, 0)) == floor.bottom_y - 5  # pane window
+    door = b.cell(0, 2)
+    assert door.kind == CellKind.DOOR
+    assert b.sill_y(door) == floor.bottom_y
+    arched = b.cell(1, 2)
+    assert arched.kind == CellKind.ARCHED
+    assert b.sill_y(arched) == b.section_floors()[1].bottom_y
 
 
 def test_hitbox_is_12_by_28_standing_on_feet():
@@ -138,7 +163,7 @@ def test_up_moves_to_next_floor():
     tick_n(f, b, 200)
     assert f.state == FelixState.IDLE
     assert f.local_row == 1
-    assert f.world_pos() == (b.cell(1, 2).center_x, b.section_floors()[1].bottom_y)
+    assert f.world_pos() == (b.cell(1, 2).center_x, b.sill_y(b.cell(1, 2)))
 
 
 def test_up_blocked_by_sill_obstacle():
@@ -206,38 +231,137 @@ def test_bonus_life_every_5000():
     assert BONUS_LIFE_THRESHOLD == 5000
 
 
-def test_hit_costs_life_and_stuns():
+def test_hit_starts_sequence_without_losing_a_life_yet():
     f, b = make_felix()
     assert f.hit() is True
-    assert f.state == FelixState.STUNNED
-    assert f.lives == INITIAL_LIVES - 1
+    assert f.state == FelixState.HIT_ANIM
+    assert f.is_in_hit_sequence
+    assert f.lives == INITIAL_LIVES
 
 
-def test_hit_ignored_while_stunned():
+def test_hit_ignored_during_sequence():
     f, b = make_felix()
     f.hit()
     assert f.hit() is False
-    assert f.lives == INITIAL_LIVES - 1
+    tick_n(f, b, HIT_ANIM_TICKS + 5)
+    assert f.state == FelixState.HIT_FALL
+    assert f.hit() is False
+    assert f.lives == INITIAL_LIVES
 
 
-def test_stun_drops_below_anchor_then_recovers():
-    f, b = make_felix()
+def test_hit_animation_plays_in_place_then_falls_with_exe_gravity():
+    f, b = make_felix(1, 3)
+    start = f.world_pos()
     f.hit()
+    for _ in range(HIT_ANIM_TICKS - 1):
+        tick_n(f, b, 1)
+        assert f.state == FelixState.HIT_ANIM
+        assert f.world_pos() == start
     tick_n(f, b, 1)
-    _, feet_y = f.world_pos()
-    assert feet_y == b.section_floors()[0].bottom_y + FELIX_STUN_START_BELOW
-    tick_n(f, b, 600)
+    assert f.state == FelixState.HIT_FALL
+    assert f.world_pos() == start
+    positions = []
+    for _ in range(4):
+        tick_n(f, b, 1)
+        positions.append(f.world_pos()[1])
+    steps = [positions[0] - start[1]] + [b2 - a for a, b2 in zip(positions, positions[1:])]
+    for index, step in enumerate(steps):
+        assert abs(step - FELIX_HIT_FALL_GRAVITY * (index + 1)) < 1e-9
+    assert f.world_pos()[0] == start[0]
+
+
+def test_hit_animation_frame_ids_follow_facing():
+    f, b = make_felix()
+    f.facing_right = True
+    f.hit()
+    assert f._hit_frame_id() == 34
+    tick_n(f, b, 6)
+    assert f._hit_frame_id() == 35
+    f, b = make_felix()
+    f.facing_right = False
+    f.hit()
+    assert f._hit_frame_id() == 64
+
+
+def fall_off(felix, building):
+    for _ in range(2000):
+        if felix.state == FelixState.HIT_RESPAWN_WAIT:
+            return
+        tick_n(felix, building, 1)
+    raise AssertionError("Felix never fell off")
+
+
+def test_falls_past_street_then_waits_60_hidden_then_respawns_same_cell():
+    f, b = make_felix(2, 4)
+    f.hit()
+    fall_off(f, b)
+    assert f.world_pos()[1] > STREET_Y + 40
+    assert f.lives == INITIAL_LIVES
+    for _ in range(FELIX_RESPAWN_DELAY_TICKS - 1):
+        tick_n(f, b, 1)
+        assert f.state == FelixState.HIT_RESPAWN_WAIT
+    assert f.lives == INITIAL_LIVES
+    tick_n(f, b, 1)
     assert f.state == FelixState.IDLE
-    assert f.world_pos()[1] == b.section_floors()[0].bottom_y
+    assert not f.is_in_hit_sequence
+    assert f.lives == INITIAL_LIVES - 1
+    assert (f.local_row, f.column) == (2, 4)
+    assert f.world_pos() == (b.cell(2, 4).center_x, b.sill_y(b.cell(2, 4)))
 
 
-def test_final_hit_leads_to_dying():
+def test_hit_mid_walk_respawns_on_the_cell_he_left():
+    f, b = make_felix(0, 2)
+    press(f, b, Action.RIGHT)
+    tick_n(f, b, 3)
+    f.hit()
+    fall_off(f, b)
+    tick_n(f, b, FELIX_RESPAWN_DELAY_TICKS)
+    assert (f.local_row, f.column) == (0, 2)
+
+
+def test_last_life_never_respawns_and_ends_in_game_over():
+    f, b = make_felix(1, 1)
+    f.lives = 1
+    sound = RecordingSound()
+    start = f.world_pos()
+    assert f.hit(sound) is True
+    assert f.state == FelixState.FINAL_HIT_ANIM
+    assert sound.played == ["death"]
+    states = set()
+    for _ in range(5000):
+        if f.is_game_over:
+            break
+        tick_n(f, b, 1, sound)
+        states.add(f.state)
+        if not f.is_game_over:
+            assert f.world_pos() == start  # the final sequence stays on the sill
+            assert f.lives == 1
+    assert f.is_game_over
+    assert FelixState.IDLE not in states
+    assert FelixState.HIT_FALL not in states
+    assert f.lives == 0
+    assert sound.played == ["death"]
+    tick_n(f, b, 500)
+    assert f.is_game_over
+    assert f.lives == 0
+
+
+def test_final_sequence_timing_from_exe_holds():
     f, b = make_felix()
     f.lives = 1
     f.hit()
-    tick_n(f, b, 600)
-    assert f.lives == 0
-    assert f.state in (FelixState.DYING, FelixState.DEATH_HANDLER)
+    # Frame index 7 is reached after frames 0-6 show for hold + 1 ticks each.
+    settle_ticks = 31 + 6 * 13
+    tick_n(f, b, settle_ticks - 1)
+    assert f.state == FelixState.FINAL_HIT_ANIM
+    tick_n(f, b, 1)
+    assert f.state == FelixState.FINAL_HIT_HOLD
+    assert f._hit_frame_id() == 72
+    tick_n(f, b, FELIX_GAME_OVER_DELAY_TICKS - 1)
+    assert not f.is_game_over
+    assert f._hit_frame_id() == 74  # lies on the halo frame
+    tick_n(f, b, 1)
+    assert f.is_game_over
 
 
 def test_invulnerable_ignores_hit_and_expires_after_480_ticks():
