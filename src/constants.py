@@ -66,10 +66,25 @@ STUN_HOLD_TICKS = seconds_to_ticks(1.0)      # pause before rising back up
 DYING_TICKS = seconds_to_ticks(1.0)
 SPRITE_FRAME_HOLD_TICKS = seconds_to_ticks(0.15)  # walk/flap/idle anim cadence
 
-RALPH_THROW_BASE_INTERVAL_TICKS = seconds_to_ticks(3.0)
-RALPH_THROW_INTERVAL_STEP_TICKS = seconds_to_ticks(0.25)  # faster per level
-RALPH_THROW_MIN_INTERVAL_TICKS = seconds_to_ticks(0.75)
-RALPH_THROW_ANIM_TICKS = seconds_to_ticks(0.5)
+# Ralph state machine. [EXE] 0x40e1a4 (state table), FUN_0040d870 (patrol/pound),
+# FUN_0040d970 (rage), FUN_0040dbb0 (climb), FUN_0040dd90 (brick spawn).
+RALPH_WALK_SPEED = 1.0  # [EXE] 0x40e1a4 walk, px/tick
+RALPH_PATROL_CENTER_X = 120  # [EXE] 0x40e1a4 start and hub position
+RALPH_PATROL_SIDE_X = (72, 169)  # [EXE] 0x40e1a4 alternating stops
+RALPH_POUND_BASE_TICKS = 9  # [EXE] FUN_0040d870 brick interval floor
+RALPH_POUND_RANDOM_TICKS = 8  # [EXE] FUN_0040d870 rand(0..7) added to the interval
+RALPH_POUND_DURATION_TICKS = 60  # [ASSUMED] exe pound duration is open in the spec
+RALPH_CYCLES_PER_DROP = 3  # [EXE] FUN_0040d870 walk/pound cycles per drop hazard
+RALPH_DROP_DELAY_TICKS = 30  # [EXE] FUN_0040d870 timer before the drop hazard
+RALPH_CLIMB_SPEED = 1.0  # [EXE] FUN_0040dbb0 px/tick
+RALPH_CLIMB_DAMAGE_INTERVAL_TICKS = 10  # [EXE] FUN_0040dbb0
+RALPH_CLIMB_DAMAGE_CHANCE = 0.5  # [EXE] FUN_0040dbb0
+RALPH_RAGE_WINDUP_TICKS = 80  # [EXE] FUN_0040d970
+RALPH_RAGE_BRICK_INTERVAL_TICKS = 8  # [EXE] FUN_0040d970
+RALPH_RAGE_DURATION_TICKS = 240  # [EXE] FUN_0040d970
+RALPH_SECTION_POSE_TICKS = 60  # [ASSUMED] pose length; timed by the game scene
+BRICK_SPAWN_SPREAD = 32  # [EXE] FUN_0040dd90 x offset is rand(-32..31)
+BRICK_SPAWN_DROP = 8  # [EXE] FUN_0040dd90 y offset below Ralph's feet
 
 BIRD_BASE_INTERVAL_TICKS = seconds_to_ticks(8.0)
 BIRD_INTERVAL_STEP_TICKS = seconds_to_ticks(0.5)
