@@ -1,17 +1,22 @@
 """Building model: floors stacked in world coordinates, each with window cells.
 
-Model only; drawing is added separately. Layout follows the exe's
+Also draws itself (floor art, cell pieces, window panes). Layout follows the exe's
 FUN_00405e50 / FUN_00409610, damage FUN_00409840, fix and scoring FUN_00409a70.
 """
 
 import random
 
+import pygame
+
+from camera import Camera
 from exe_tables import BUILDING_PIECES
 from level_config import (
     CELL_PIECE,
     CENTER_CELL_KIND,
     COLUMN_X,
+    FACADE_X,
     FLOOR_HEIGHT,
+    FLOOR_PIECE,
     FLOORS_PER_SECTION,
     STREET_Y,
     CellKind,
@@ -19,6 +24,8 @@ from level_config import (
     get_floor_sequence,
     get_level_config,
 )
+from sprite_data import PANE_FRAME_INTACT
+from sprite_sheet import SpriteSheet
 
 PANE_INTACT = 0
 PANE_SMASHED = 5  # [EXE] FUN_00409840: pane state 5 is fully smashed
@@ -26,6 +33,16 @@ PANE_SMASHED = 5  # [EXE] FUN_00409840: pane state 5 is fully smashed
 CENTER_COLUMN = 2
 FIX_SCORE = 100  # [EXE] FUN_00409a70
 FIX_LAST_WINDOW_SCORE = 500  # [EXE] FUN_00409a70 ("FIX LAST WINDOW 500 PTS")
+
+DOOR_FIRST_PIECE = CELL_PIECE[CellKind.DOOR]
+DOOR_MAX_DRAWN_DAMAGE = 3  # [ASSUMED] door art has 4 pieces: intact + 3 damage steps
+PANE_TOP_OFFSET_Y = 0xC  # [EXE] FUN_00404ea0 top pane, from the cell piece top
+PANE_BOTTOM_OFFSET_Y = 0x19  # [EXE] FUN_00404ea0 bottom pane
+PANE_OFFSET_X = 4  # [ASSUMED] centers the pane art in the 24px cell piece
+PANE_WINDOW_KINDS = (CellKind.PLAIN, CellKind.PEDIMENT_A, CellKind.PEDIMENT_B)
+GLASS_OFFSET_X = 6  # [EXE] FUN_00404ea0 example rect
+GLASS_WIDTH = 12  # [EXE] FUN_00404ea0 example rect
+GLASS_HEIGHT = 23  # [EXE] FUN_00404ea0 example rect
 
 
 class WindowCell:
@@ -129,6 +146,75 @@ class Building:
             floors.append(floor)
             bottom_y = floor.top_y
         return floors
+
+    @staticmethod
+    def _cell_piece_id(cell: WindowCell) -> int:
+        if cell.kind == CellKind.DOOR:
+            return DOOR_FIRST_PIECE + min(cell.door_damage, DOOR_MAX_DRAWN_DAMAGE)
+        return CELL_PIECE[cell.kind]
+
+    def _floor_for_cell(self, cell: WindowCell) -> Floor:
+        return self.floors[cell.floor_index]
+
+    def glass_rect(self, cell: WindowCell) -> pygame.Rect:
+        """World-space rect of the cell's breakable glass.
+
+        Pane windows use the FUN_00404ea0 example rect; the door and arched
+        window use their whole piece.
+        """
+        floor = self._floor_for_cell(cell)
+        _, _, piece_width, piece_height = BUILDING_PIECES[CELL_PIECE[cell.kind]]
+        piece_top = floor.bottom_y - piece_height
+        if cell.kind not in PANE_WINDOW_KINDS:
+            return pygame.Rect(cell.x, piece_top, piece_width, piece_height)
+        return pygame.Rect(
+            cell.x + GLASS_OFFSET_X,
+            piece_top + PANE_TOP_OFFSET_Y,
+            GLASS_WIDTH,
+            GLASS_HEIGHT,
+        )
+
+    def draw(
+        self,
+        screen: pygame.Surface,
+        sprites: SpriteSheet,
+        camera: Camera,
+        palette: int,
+    ) -> None:
+        """Draw floor art first (bottom-aligned), then cells and their panes."""
+        screen_height = screen.get_height()
+        for floor in self.floors:
+            floor_surface = sprites.get_piece(FLOOR_PIECE[floor.floor_type], palette)
+            # Roof art is taller than its row; it is bottom-aligned [ASSUMED].
+            screen_bottom = camera.to_screen_y(floor.bottom_y)
+            screen_top = screen_bottom - floor_surface.get_height()
+            if screen_bottom <= 0 or screen_top >= screen_height:
+                continue
+            screen.blit(floor_surface, (FACADE_X, screen_top))
+            for cell in floor.cells:
+                self._draw_cell(screen, sprites, camera, palette, floor, cell)
+
+    def _draw_cell(
+        self,
+        screen: pygame.Surface,
+        sprites: SpriteSheet,
+        camera: Camera,
+        palette: int,
+        floor: Floor,
+        cell: WindowCell,
+    ) -> None:
+        piece = sprites.get_piece(self._cell_piece_id(cell), palette)
+        piece_top = camera.to_screen_y(floor.bottom_y) - piece.get_height()
+        screen.blit(piece, (cell.x, piece_top))
+        if cell.kind not in PANE_WINDOW_KINDS:
+            return
+        pane_x = cell.x + PANE_OFFSET_X
+        for offset_y, state in (
+            (PANE_TOP_OFFSET_Y, cell.top_pane),
+            (PANE_BOTTOM_OFFSET_Y, cell.bottom_pane),
+        ):
+            pane = sprites.get_frame(PANE_FRAME_INTACT + state, palette)
+            screen.blit(pane, (pane_x, piece_top + offset_y))
 
     def section_floors(self, section_index: int | None = None) -> list[Floor]:
         """Return the floors of a section (default: the active one), bottom first."""
