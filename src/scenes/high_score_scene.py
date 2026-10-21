@@ -2,7 +2,7 @@ import json
 import os
 import pygame
 from scene_manager import Scene
-from constants import GAME_WIDTH, GAME_HEIGHT, BLACK, PROJECT_ROOT
+from constants import GAME_WIDTH, GAME_HEIGHT, BLACK, PROJECT_ROOT, HS_DISPLAY_TIMER_TICKS
 from input_handler import Action
 from sprite_sheet import SpriteSheet
 from sound_manager import SoundManager
@@ -59,7 +59,7 @@ class HighScoreScene(Scene):
         self.sound.stop_music()
 
     def tick(self, input_handler):
-        """One game tick (250ms). All game logic is tick-counted."""
+        """One game tick (1/60s). All game logic is tick-counted."""
         if self._is_entering:
             if input_handler.is_just_pressed(Action.UP):
                 self._letter_index = (self._letter_index - 1) % len(LETTER_OPTIONS)
@@ -85,7 +85,7 @@ class HighScoreScene(Scene):
 
         if not self._is_entering:
             self._display_ticks += 1
-            if self._display_ticks >= 40:  # 10.0 real seconds x 4 ticks/sec
+            if self._display_ticks >= HS_DISPLAY_TIMER_TICKS:
                 from scenes.title_scene import TitleScene
                 self.manager.replace(TitleScene(self.manager))
 

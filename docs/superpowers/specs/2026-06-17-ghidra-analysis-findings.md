@@ -29,18 +29,22 @@ game_y = (mouse_y * 0x140) / window_height;  // 0x140 = 320
 
 The 640x480 window is just the display size — the game scales up from 240x320. Note: the game is **taller than wide** (portrait orientation, 240 wide x 320 tall). The boot loader BMPs are 640x480 landscape, but the actual gameplay runs portrait.
 
-### 2. Game Tick Rate: 250ms Fixed Step (4 FPS), NOT 60 FPS
+### 2. Game Tick Rate: 60 ticks/sec (CORRECTED — originally misread as 250ms / 4 FPS)
 
 ```c
-SetTimer(hWnd, 0, 0xFA, callback);  // 0xFA = 250ms
+timeBeginPeriod(1);
+SetTimer(hWnd, 0, 0xFA, FUN_00413de0);  // 0xFA = 250ms
 ```
 
-All game timing is measured in **ticks of 250ms**. The game logic advances 4 times per second. This is a fixed-step simulation, not frame-rate dependent.
+**Correction (2026-10-19):** Pass 1 read this 250ms timer as the game tick and concluded logic ran at 4 ticks/sec. Pass 3 decompiled the callback `FUN_00413de0` and found it is only the **window title updater / Controls.log recorder** (see "Timer Callback" below) — it does not drive game logic. `timeBeginPeriod(1)` alongside it requests 1ms timer resolution, which points to a separately self-paced main loop.
 
-**Key timing conversions:**
-- 1 displayed "second" (TIME LEFT) = 60 ticks = 15 real seconds
-- High score entry timer: 1800 ticks = 30 displayed seconds = 450 real seconds
-- D-pad repeat delay: 20 ticks = 5 real seconds
+Game logic runs at **60 ticks/sec**. The main loop's pacing call wasn't decompiled, so 60 Hz is inferred, but every confirmed tick-count only makes sense at that rate:
+- 1 displayed "second" (TIME LEFT) = 60 ticks = 1 real second (at 4 Hz: 15s)
+- High score entry timer: 1800 ticks = 30 seconds (at 4 Hz: 7.5 minutes)
+- D-pad repeat delay: 20 ticks = 0.33 seconds (at 4 Hz: 5s)
+- Felix max horizontal speed 2.0 px/tick crosses a 40px window in 0.33s (at 4 Hz: 5s)
+
+Playtesting at 4 Hz confirmed it: movement and falling bricks were unplayably slow.
 
 ### 3. Initial Lives: 10, NOT 3
 
@@ -103,13 +107,13 @@ Row types (the second number in each pair) define different window configuration
 |-------|-------------|----------------|
 | 0 | Title/Attract mode | — |
 | 1 | Level start | — |
-| 2 | High score table display | 900 ticks (225 sec) |
+| 2 | High score table display | 900 ticks (15 sec) |
 | 3 | Gameplay active | `DAT_00418064 = 0x6F` (111) |
 | 4 | Player switch (2P) | — |
 | 5 | Level complete | — |
 | 6 | Network setup | — |
-| 7 | New game start | 300 ticks (75 sec) |
-| 8 | High score entry | 1800 ticks (450 sec) |
+| 7 | New game start | 300 ticks (5 sec) |
+| 8 | High score entry | 1800 ticks (30 sec) |
 | 9 | Instructions/Demo | — |
 | 10 | Title screen setup | Hides 9 UI elements |
 

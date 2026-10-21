@@ -1,20 +1,18 @@
 import pygame
 from scene_manager import Scene
-from constants import GAME_WIDTH, GAME_HEIGHT, BLACK, SKY_BLUE
+from constants import GAME_WIDTH, GAME_HEIGHT, BLACK, SKY_BLUE, seconds_to_ticks
 from input_handler import Action
 from sprite_sheet import SpriteSheet
 from sound_manager import SoundManager
 from font_renderer import FontRenderer, scale_text_to_fit
 
 
-# duration_ticks values are real-second durations from the design converted
-# to tick counts at 4 ticks/sec: 2.0->8, 2.5->10, 2.5->10, 2.0->8, 2.0->8
 CUTSCENE_STEPS = [
-    {"duration_ticks": 8, "text": "", "sprite": "building_exterior"},
-    {"duration_ticks": 10, "text": "HEY. YOU MOVED MY STUMP!", "sprite": "ralph_cutscene_idle"},
-    {"duration_ticks": 10, "text": "I'M GONNA WRECK IT!", "sprite": "ralph_cutscene_smash"},
-    {"duration_ticks": 8, "text": "FIX IT FELIX!", "sprite": None},
-    {"duration_ticks": 8, "text": "I CAN FIX IT!", "sprite": None},
+    {"duration_ticks": seconds_to_ticks(2.0), "text": "", "sprite": "building_exterior"},
+    {"duration_ticks": seconds_to_ticks(2.5), "text": "HEY. YOU MOVED MY STUMP!", "sprite": "ralph_cutscene_idle"},
+    {"duration_ticks": seconds_to_ticks(2.5), "text": "I'M GONNA WRECK IT!", "sprite": "ralph_cutscene_smash"},
+    {"duration_ticks": seconds_to_ticks(2.0), "text": "FIX IT FELIX!", "sprite": None},
+    {"duration_ticks": seconds_to_ticks(2.0), "text": "I CAN FIX IT!", "sprite": None},
 ]
 
 
@@ -34,7 +32,7 @@ class CutsceneScene(Scene):
         self.sound.stop_music()
 
     def tick(self, input_handler):
-        """One game tick (250ms). All game logic is tick-counted."""
+        """One game tick (1/60s). All game logic is tick-counted."""
         if (input_handler.is_just_pressed(Action.JUMP) or
                 input_handler.is_just_pressed(Action.START)):
             self._start_game()

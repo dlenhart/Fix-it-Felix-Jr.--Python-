@@ -3,7 +3,7 @@ class Scene:
         self.manager = manager
 
     def tick(self, input_handler):
-        """Called once per game tick (every 250ms). All game logic goes here."""
+        """Called once per game tick (TICKS_PER_SECOND times a second). All game logic goes here."""
         pass
 
     def draw(self, screen, alpha=1.0):

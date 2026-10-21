@@ -1,6 +1,6 @@
 import pygame
 from scene_manager import Scene
-from constants import GAME_WIDTH, GAME_HEIGHT, BLACK
+from constants import GAME_WIDTH, GAME_HEIGHT, BLACK, LEVEL_CLEAR_MIN_TICKS, LEVEL_CLEAR_TICKS
 from input_handler import Action
 from sprite_sheet import SpriteSheet
 from sound_manager import SoundManager
@@ -38,13 +38,13 @@ class LevelClearScene(Scene):
         return "GOLD"
 
     def tick(self, input_handler):
-        """One game tick (250ms). All game logic is tick-counted."""
-        if input_handler.is_just_pressed(Action.JUMP) and self._ticks >= 4:  # 1.0s x 4 ticks/sec
+        """One game tick (1/60s). All game logic is tick-counted."""
+        if input_handler.is_just_pressed(Action.JUMP) and self._ticks >= LEVEL_CLEAR_MIN_TICKS:
             self._advance_to_next_level()
             return
 
         self._ticks += 1
-        if self._ticks >= 20:  # 5.0s x 4 ticks/sec
+        if self._ticks >= LEVEL_CLEAR_TICKS:
             self._advance_to_next_level()
             return
 

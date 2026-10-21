@@ -1,6 +1,9 @@
 SPRITES = {
     # Building tiles
-    "wall_brick": [(20, 4, 64, 60)],
+    # Pure-brick region inside the building art, clear of its corner pillar
+    # (x<27) and ledge (y 48-54). 64x48 is a whole multiple of the brick
+    # pattern's 8x6 repeat, so it tiles seamlessly.
+    "wall_brick": [(28, 0, 64, 48)],
     "wall_section_lower": [(9, 172, 190, 20)],
     "window_intact": [(829, 0, 39, 64)],
     "window_cracked": [(421, 48, 39, 64)],
@@ -18,9 +21,14 @@ SPRITES = {
     "felix_walk_left": [(15, 327, 15, 33), (45, 326, 19, 32), (80, 328, 12, 32), (109, 326, 19, 32)],
     "felix_climb_up": [(138, 323, 26, 37)],
     "felix_climb_down": [(132, 227, 26, 37)],
-    "felix_hammer_right": [(175, 324, 25, 34), (207, 326, 21, 34), (239, 324, 25, 34)],
-    "felix_hammer_left": [(168, 228, 25, 34), (204, 230, 21, 34), (232, 228, 25, 34)],
-    "felix_hammer_up": [(264, 230, 25, 34), (298, 232, 29, 32)],
+    # Felix's atlas art is two complete facing sets: the y~230 row faces
+    # right (its strike swings right), the y~326 row is its mirror. Hammer
+    # frames must come from the same row as the matching idle/walk frames.
+    "felix_hammer_right": [(168, 228, 25, 34), (204, 230, 21, 34), (232, 228, 25, 34), (264, 230, 25, 34)],
+    "felix_hammer_left": [(175, 324, 25, 34), (207, 326, 21, 34), (239, 324, 25, 34), (271, 326, 25, 34)],
+    # Strike = hammer swung out sideways; bbox includes the detached impact sparkle
+    "felix_strike_right": [(298, 232, 35, 32)],
+    "felix_strike_left": [(299, 328, 35, 32)],
     "felix_stunned": [(339, 231, 24, 33)],
     "felix_celebrate": [(3, 279, 18, 33), (35, 277, 16, 35)],
     "felix_head": [(68, 232, 12, 14)],
@@ -53,6 +61,17 @@ SPRITES = {
     "ralph_cutscene_idle": [(516, 762, 43, 54)],
     "ralph_cutscene_smash": [(552, 820, 64, 79)],
     "nicelander_head": [(2, 861, 11, 19), (17, 862, 11, 18), (32, 863, 13, 17), (48, 862, 13, 18)],
+}
+
+# Head-center x within frame 0 of Felix's hammer sprites. These frames are
+# wider than the body (the hammer sticks out to one side), so centering the
+# whole frame on the window would shift Felix sideways mid-swing; aligning
+# the head instead keeps his body planted. Measured from the atlas.
+FELIX_HEAD_CENTER_X = {
+    "felix_hammer_right": 9,
+    "felix_hammer_left": 15,
+    "felix_strike_right": 7,
+    "felix_strike_left": 27,
 }
 
 # Font definition — 4 color rows of bitmap characters

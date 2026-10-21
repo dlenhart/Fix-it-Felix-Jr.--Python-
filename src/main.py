@@ -35,7 +35,7 @@ def main():
         if input_handler.is_just_pressed(Action.QUIT):
             running = False
 
-        # Fixed-step game logic at 250ms per tick (4 Hz)
+        # Fixed-step game logic at TICKS_PER_SECOND (60 Hz)
         while tick_accumulator >= TICK_RATE:
             scene_manager.tick(input_handler)
             input_handler.consume_just_pressed()
@@ -44,8 +44,8 @@ def main():
         pygame.display.set_caption(f"Fix-It Felix Jr.")
 
         # How far we are into the next pending tick (0..1) — lets entities
-        # interpolate their rendered position for smooth 60fps motion even
-        # though game logic only advances once per 250ms tick.
+        # interpolate their rendered position so motion stays smooth when
+        # render frames and logic ticks drift out of step.
         alpha = tick_accumulator / TICK_RATE
 
         # Render at 60fps to internal surface, then scale up

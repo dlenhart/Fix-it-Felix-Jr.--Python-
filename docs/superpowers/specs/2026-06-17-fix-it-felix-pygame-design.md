@@ -9,7 +9,7 @@ Faithful recreation of the Fix-It Felix Jr. arcade game (from Wreck-It Ralph) as
 - **Faithful recreation**: match the original arcade game — same mechanics, scoring, grid layout, timing model
 - **Single player only**: multiplayer deferred to a future phase
 - **240×320 internal resolution** (confirmed by Ghidra): render at 240×320 and scale up to display window (e.g. 3× = 720×960)
-- **250ms fixed-step game logic** (confirmed by Ghidra): game advances 4 ticks per second, rendering interpolates between ticks at display refresh rate
+- **60 ticks/sec fixed-step game logic**, rendering interpolates between ticks at display refresh rate. _(Corrected 2026-10-19: this spec originally said 250ms / 4 ticks per second, from a misread SetTimer that turned out to be the window-title updater — see `ghidra-analysis-findings.md` §2. Tick-count values below written as "250ms each" should be read as 1/60s each.)_
 - **Manual sprite extraction**: precise bounding boxes defined for every sprite region in the atlas
 - **Keyboard + gamepad input**: unified input abstraction
 - **Python 3 + Pygame**: no other dependencies

@@ -1,8 +1,6 @@
 import pygame
 from entities.building import WINDOW_WIDTH, WINDOW_HEIGHT
-
-
-PIE_LINGER_TICKS = 20  # ~5 real seconds at 4 Hz
+from constants import PIE_LINGER_TICKS, PIE_BLINK_WARNING_TICKS, BLINK_TOGGLE_TICKS
 
 
 class Pie:
@@ -21,8 +19,8 @@ class Pie:
 
     def tick(self):
         self._ticks += 1
-        if self._ticks >= PIE_LINGER_TICKS - 6:  # Blink in last ~1.5 seconds
-            self._blink = not self._blink
+        if self._ticks >= PIE_LINGER_TICKS - PIE_BLINK_WARNING_TICKS:
+            self._blink = (self._ticks // BLINK_TOGGLE_TICKS) % 2 == 1
         if self._ticks >= PIE_LINGER_TICKS:
             self.active = False
         return not self.active

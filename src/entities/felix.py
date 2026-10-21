@@ -3,12 +3,14 @@ import enum
 import pygame
 from input_handler import Action
 from entities.building import GRID_COLS, WINDOW_WIDTH, WINDOW_HEIGHT
+from sprite_data import FELIX_HEAD_CENTER_X
 from constants import (
     INITIAL_LIVES, BONUS_LIFE_THRESHOLD, SUPER_DURATION_TICKS,
     FELIX_MAX_HORIZONTAL_SPEED,
     FELIX_FALL_TERMINAL_VEL, FELIX_HAMMER_START_OFFSET,
     FELIX_STUN_KNOCKBACK_Y,
     FELIX_VERTICAL_MOVE_RATE, FELIX_GRAVITY_ACCEL, HAMMER_ANIM_RATE,
+    HAMMER_EXTENDED_TICKS, STUN_HOLD_TICKS, DYING_TICKS, SPRITE_FRAME_HOLD_TICKS,
 )
 
 
@@ -51,7 +53,7 @@ class Felix:
         self._super_ticks = 0
         self._hammer_offset = 0.0
         self._hammer_phase = 0
-        self._anim_frame = 0
+        self._anim_ticks = 0
         self._next_bonus_at = BONUS_LIFE_THRESHOLD
         self._pos_initialized = False
 
@@ -99,11 +101,11 @@ class Felix:
     def tick(self, input_handler, building, sound=None):
         self._init_pos(building)
         # Snapshot position at the start of this tick so draw() can
-        # interpolate toward wherever this tick's movement ends up,
-        # smoothing motion across the ~15 render frames between ticks.
+        # interpolate toward wherever this tick's movement ends up, keeping
+        # motion smooth when render frames and logic ticks drift out of step.
         self._prev_pos_x = self._pos_x
         self._prev_pos_y = self._pos_y
-        self._anim_frame = (self._anim_frame + 1) % 4
+        self._anim_ticks += 1
 
         if self.is_super:
             self._super_ticks += 1
@@ -150,10 +152,13 @@ class Felix:
         elif input_handler.is_just_pressed(Action.RIGHT):
             dx = 1
             self.facing_right = True
+        # dy is in row space, where row 0 is the BOTTOM row and rows grow
+        # upward (see Building.get_window_pixel_pos) — the opposite of
+        # screen-space y.
         elif input_handler.is_just_pressed(Action.UP):
-            dy = -1
-        elif input_handler.is_just_pressed(Action.DOWN):
             dy = 1
+        elif input_handler.is_just_pressed(Action.DOWN):
+            dy = -1
 
         if dx != 0:
             new_col = self.col + dx
@@ -236,7 +241,7 @@ class Felix:
 
     def _tick_hammer_extended(self, building, sound):
         self._state_ticks += 1
-        if self._state_ticks >= 2:
+        if self._state_ticks >= HAMMER_EXTENDED_TICKS:
             repaired, fully_fixed = building.repair_window(
                 self.col, self.row, is_super=self.is_super
             )
@@ -266,7 +271,7 @@ class Felix:
         target_x, target_y = building.get_window_pixel_pos(self.col, self.row)
         if self._state_ticks == 1:
             self._pos_y = FELIX_STUN_KNOCKBACK_Y
-        if self._state_ticks < 4:
+        if self._state_ticks < STUN_HOLD_TICKS:
             return
         fall_speed = 8.0
         self._pos_y -= fall_speed
@@ -280,7 +285,7 @@ class Felix:
 
     def _tick_dying(self, sound):
         self._state_ticks += 1
-        if self._state_ticks >= 4:
+        if self._state_ticks >= DYING_TICKS:
             self.state = FelixState.DEATH_HANDLER
             self._state_ticks = 0
 
@@ -312,12 +317,14 @@ class Felix:
 
         if self.state == FelixState.STUNNED:
             sprite_name = "felix_stunned"
-        elif self.state in (FelixState.HAMMERING, FelixState.HAMMER_EXTENDED):
+        elif self.state == FelixState.HAMMERING:
             sprite_name = "felix_hammer_right" if self.facing_right else "felix_hammer_left"
+        elif self.state == FelixState.HAMMER_EXTENDED:
+            sprite_name = "felix_strike_right" if self.facing_right else "felix_strike_left"
         elif self.state in (FelixState.WALK_HORIZONTAL, FelixState.WALK_VERTICAL,
                             FelixState.JUMPING):
             sprite_name = "felix_walk_right" if self.facing_right else "felix_walk_left"
-            frame = self._anim_frame % max(sprite_sheet.get_frame_count(sprite_name), 1)
+            frame = (self._anim_ticks // SPRITE_FRAME_HOLD_TICKS) % max(sprite_sheet.get_frame_count(sprite_name), 1)
         elif self.state == FelixState.CELEBRATING:
             sprite_name = "felix_celebrate"
         else:
@@ -325,7 +332,10 @@ class Felix:
 
         try:
             sprite = sprite_sheet.get_sprite(sprite_name, frame, palette)
-            offset_x = (WINDOW_WIDTH - sprite.get_width()) // 2
+            if sprite_name in FELIX_HEAD_CENTER_X:
+                offset_x = WINDOW_WIDTH // 2 - FELIX_HEAD_CENTER_X[sprite_name]
+            else:
+                offset_x = (WINDOW_WIDTH - sprite.get_width()) // 2
             offset_y = WINDOW_HEIGHT - sprite.get_height()
             screen.blit(sprite, (px + offset_x, py + offset_y))
         except (KeyError, IndexError):

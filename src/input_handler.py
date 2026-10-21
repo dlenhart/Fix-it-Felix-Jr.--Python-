@@ -9,6 +9,7 @@ class Action(enum.Enum):
     RIGHT = "right"
     JUMP = "jump"
     START = "start"
+    PAUSE = "pause"
     QUIT = "quit"
 
 
@@ -20,6 +21,7 @@ KEYBOARD_MAP = {
     pygame.K_SPACE: Action.JUMP,
     pygame.K_z: Action.JUMP,
     pygame.K_RETURN: Action.START,
+    pygame.K_p: Action.PAUSE,
     pygame.K_ESCAPE: Action.QUIT,
 }
 
@@ -43,6 +45,7 @@ class InputHandler:
     def __init__(self):
         self._pressed = set()
         self._just_pressed = set()
+        self._has_lost_focus = False
         self._joystick = None
         self._init_joystick()
 
@@ -52,10 +55,11 @@ class InputHandler:
             self._joystick.init()
 
     def poll(self, events):
-        # poll() runs once per render frame (60fps), but game logic only
-        # consumes is_just_pressed() once per fixed-step tick (4Hz). A key
-        # transition lasts exactly one poll(), so without latching it here,
-        # the signal is almost always cleared before a tick ever sees it.
+        # poll() runs once per render frame, but game logic only consumes
+        # is_just_pressed() once per fixed-step tick. The two rates don't stay
+        # in lockstep (a slow frame runs 0 or 2+ ticks), and a key transition
+        # lasts exactly one poll(), so without latching it here a press can
+        # be cleared before any tick sees it.
         # just_pressed accumulates across polls until consume_just_pressed()
         # is called once per tick.
         prev_pressed = self._pressed.copy()
@@ -66,6 +70,8 @@ class InputHandler:
                 self._init_joystick()
             elif event.type == pygame.JOYDEVICEREMOVED:
                 self._joystick = None
+            elif event.type == pygame.WINDOWFOCUSLOST:
+                self._has_lost_focus = True
 
         keys = pygame.key.get_pressed()
         for key, action in KEYBOARD_MAP.items():
@@ -99,6 +105,12 @@ class InputHandler:
     def consume_just_pressed(self):
         """Call once per game-logic tick, after it has read is_just_pressed()."""
         self._just_pressed.clear()
+        self._has_lost_focus = False
+
+    def has_lost_focus(self):
+        """True if the window lost focus since the last tick. Latched like
+        is_just_pressed() so a tick can't miss it between polls."""
+        return self._has_lost_focus
 
     def is_pressed(self, action):
         return action in self._pressed

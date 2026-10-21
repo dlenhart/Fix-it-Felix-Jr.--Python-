@@ -10,7 +10,7 @@ This document covers the reverse engineering process — how we deconstructed th
 FixitFelixJr.exe  —  PE32 executable (GUI) Intel 80386, for MS Windows
 Built with: MSVC 2008, OpenGL rendering, DirectSound audio
 Internal resolution: 240x320 (portrait), displayed in a 640x480 window
-Game loop: 250ms fixed-step timer (SetTimer with 0xFA)
+Game loop: 60 ticks/sec fixed step (the 250ms SetTimer only updates the window title)
 ```
 
 The game ships with its assets alongside the executable:
@@ -73,7 +73,7 @@ export JAVA_HOME="/opt/homebrew/opt/openjdk@21"
 Also scanned for `SetTimer`/`KillTimer` calls (to find the game tick rate) and ranked all functions by code size (largest functions are usually the game logic).
 
 **Key discoveries:**
-- `SetTimer(hWnd, 0, 0xFA, callback)` — tick rate is 0xFA = 250ms (4 Hz game logic)
+- `SetTimer(hWnd, 0, 0xFA, callback)` — first read as a 250ms (4 Hz) game tick. Pass 3 later showed the callback only updates the window title; playtesting at 4 Hz was unplayably slow, and every confirmed tick count (60 ticks per displayed second, 1800-tick high score entry) fits 60 Hz. Corrected to 60 ticks/sec.
 - `_DAT_00424258 = 10` — initial lives are 10, not 3
 - Internal resolution is 240x320 at 24bpp, not 640x480
 - 5 section types with different row counts: `(type != 2) + 6`
@@ -159,7 +159,7 @@ Some constants (acceleration rates, tick deltas, Y bounds) are zero in the binar
 | Topic | Original Assumption | Ghidra Reality |
 |-------|-------------------|----------------|
 | Resolution | 640x480 | 240x320 portrait, scaled up |
-| Game tick | 60 FPS | 250ms fixed step (4 Hz) |
+| Game tick | 60 FPS | 60 ticks/sec — briefly misread as 250ms (4 Hz) from a window-title timer, corrected after playtesting |
 | Lives | 3 | 10 |
 | Grid rows | 3 per section | 6-7, varies by section type |
 | Section types | 3 identical | 5 different configurations |

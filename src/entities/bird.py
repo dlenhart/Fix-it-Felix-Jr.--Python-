@@ -1,6 +1,6 @@
 import pygame
 from entities.building import WINDOW_WIDTH, WINDOW_HEIGHT
-from constants import GAME_WIDTH
+from constants import GAME_WIDTH, SPRITE_FRAME_HOLD_TICKS
 
 
 BIRD_SPEED_X = 2.2   # Ghidra pass 3: _DAT_00416b94
@@ -16,14 +16,13 @@ class Bird:
         self.width = 24
         self.height = 16
         self.active = True
-        self._anim_frame = 0
-        self._anim_timer = 0.0
+        self._anim_ticks = 0
 
     def tick(self):
         """Advance one tick."""
         self._prev_x = self.x
         self.x += self.speed
-        self._anim_frame = (self._anim_frame + 1) % 2
+        self._anim_ticks += 1
         if self.x < -50 or self.x > GAME_WIDTH + 50:
             self.active = False
         return not self.active
@@ -38,8 +37,9 @@ class Bird:
     def draw(self, screen, sprite_sheet, palette, alpha=1.0):
         render_x = self._prev_x + (self.x - self._prev_x) * alpha
         sprite_name = "bird_right" if self.speed > 0 else "bird_left"
+        frame = (self._anim_ticks // SPRITE_FRAME_HOLD_TICKS) % 2
         try:
-            sprite = sprite_sheet.get_sprite(sprite_name, self._anim_frame, palette)
+            sprite = sprite_sheet.get_sprite(sprite_name, frame, palette)
             screen.blit(sprite, (int(render_x), int(self.y)))
         except (KeyError, IndexError):
             pygame.draw.polygon(screen, (80, 80, 80), [

@@ -1,6 +1,6 @@
 import pygame
 from scene_manager import Scene
-from constants import GAME_WIDTH, GAME_HEIGHT, BLACK
+from constants import GAME_WIDTH, GAME_HEIGHT, BLACK, TITLE_BLINK_TICKS
 from input_handler import Action
 from sprite_sheet import SpriteSheet
 from sound_manager import SoundManager
@@ -23,7 +23,7 @@ class TitleScene(Scene):
         self.sound.stop_music()
 
     def tick(self, input_handler):
-        """One game tick (250ms). All game logic is tick-counted."""
+        """One game tick (1/60s). All game logic is tick-counted."""
         if (input_handler.is_just_pressed(Action.START) or
                 input_handler.is_just_pressed(Action.JUMP)):
             self.sound.play_sfx("menu_confirm")
@@ -32,7 +32,7 @@ class TitleScene(Scene):
             return
 
         self._blink_ticks += 1
-        if self._blink_ticks >= 2:  # 2 ticks = 0.5 real seconds at 4 Hz
+        if self._blink_ticks >= TITLE_BLINK_TICKS:
             self._blink_ticks = 0
             self._show_press_start = not self._show_press_start
 

@@ -69,6 +69,15 @@ class SoundManager:
     def stop_music(self):
         pygame.mixer.music.stop()
 
+    def pause_all(self):
+        """Freeze music and any in-flight sound effects where they are."""
+        pygame.mixer.music.pause()
+        pygame.mixer.pause()
+
+    def resume_all(self):
+        pygame.mixer.music.unpause()
+        pygame.mixer.unpause()
+
     def set_sfx_volume(self, volume):
         for sound in self._sounds.values():
             sound.set_volume(volume)

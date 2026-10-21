@@ -7,7 +7,7 @@ import pygame
 pygame.init()
 
 from entities.felix import Felix, FelixState
-from constants import BONUS_LIFE_THRESHOLD
+from constants import BONUS_LIFE_THRESHOLD, seconds_to_ticks
 from entities.building import Building
 
 
@@ -96,7 +96,7 @@ def test_stun_recovery():
     b.reset_for_level(1)
     f.tick(MockInput(), b)
     f.stun()
-    for _ in range(30):
+    for _ in range(seconds_to_ticks(3.0)):
         f.tick(MockInput(), b)
     assert f.state == FelixState.IDLE
 

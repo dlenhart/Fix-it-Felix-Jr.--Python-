@@ -1,6 +1,6 @@
 import pygame
 from scene_manager import Scene
-from constants import GAME_WIDTH, GAME_HEIGHT, BLACK
+from constants import GAME_WIDTH, GAME_HEIGHT, BLACK, GAME_OVER_TICKS
 from sprite_sheet import SpriteSheet
 from sound_manager import SoundManager
 from font_renderer import FontRenderer, scale_text_to_fit
@@ -19,9 +19,9 @@ class GameOverScene(Scene):
         self.sound.play_sfx("game_over")
 
     def tick(self, input_handler):
-        """One game tick (250ms). All game logic is tick-counted."""
+        """One game tick (1/60s). All game logic is tick-counted."""
         self._ticks += 1
-        if self._ticks >= 12:  # 3.0 real seconds x 4 ticks/sec
+        if self._ticks >= GAME_OVER_TICKS:
             from scenes.high_score_scene import HighScoreScene
             self.manager.replace(HighScoreScene(self.manager, self.final_score))
 
