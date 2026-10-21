@@ -103,10 +103,15 @@ GAME_OVER_TICKS = seconds_to_ticks(3.0)
 LEVEL_CLEAR_MIN_TICKS = seconds_to_ticks(1.0)   # before JUMP can skip
 LEVEL_CLEAR_TICKS = seconds_to_ticks(5.0)
 
-# Entity velocities (Ghidra pass 3)
-BRICK_FALL_VEL_A = -1.8               # _DAT_00416b98
-BRICK_FALL_VEL_B = -2.2               # _DAT_00416ba4
-BRICK_FALL_VEL_C = -1.7               # _DAT_00416ba8
-BRICK_DRIFT_X_VEL = 1.7               # _DAT_00416b9c
-BIRD_X_VEL = 2.2                      # _DAT_00416b94
-BIRD_Y_VEL = -4.0                     # _DAT_00416b90
+# Bricks. FUN_0040d490 (fall, window breaks), FUN_0040d3e0 (bounce), FUN_0040d230 (Felix hit).
+GROUND_Y = 317  # [EXE] FUN_0040d490 world y at which a falling brick bounces
+BRICK_FALL_SPEED = 1.9  # [EXE] FUN_0040d490 px/tick, straight down
+BRICK_MAX_LIVE = 64  # [EXE] FUN_0040d490 brick slot count
+BRICK_WINDOW_BREAK_ODDS = 200  # [EXE] FUN_0040d490 1-in-200 per overlapping tick
+BRICK_WINDOW_BREAK_MIN_LEVEL = 2  # [EXE] FUN_0040d490
+BRICK_WINDOW_BREAKS_PER_SECTION = 4  # [EXE] FUN_0040d490 cap; reset per section is [ASSUMED]
+BRICK_BOUNCE_VX = 1.3  # [EXE] FUN_0040d3e0 sign is a coin flip
+BRICK_BOUNCE_VY = -3.0  # [EXE] FUN_0040d3e0
+BRICK_BOUNCE_GRAVITY = 0.4  # [EXE] FUN_0040d3e0 px/tick^2
+BRICK_BOUNCE_TICKS = 40  # [ASSUMED] bounce lifetime before the brick vanishes
+BRICK_BLINK_TICKS = 4  # [ASSUMED] visible/hidden period while bouncing, matches Felix's blink
