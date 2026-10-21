@@ -1,3 +1,9 @@
+# Exe-numbered ids into exe_tables.SPRITE_FRAMES / BUILDING_PIECES.
+PANE_FRAME_INTACT = 163
+BRICK_FRAMES = (5, 4)
+SILL_OBSTACLE_FRAME = 214
+LIFE_ICON_PIECE = 17
+
 SPRITES = {
     # Building tiles
     # Pure-brick region inside the building art, clear of its corner pillar

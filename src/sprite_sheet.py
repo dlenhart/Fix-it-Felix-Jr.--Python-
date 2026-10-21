@@ -1,6 +1,7 @@
 import os
 import pygame
 from constants import ASSET_DIR
+from exe_tables import BUILDING_PIECES, SPRITE_FRAMES
 
 
 class SpriteSheet:
@@ -32,6 +33,36 @@ class SpriteSheet:
         surface = atlas.subsurface(pygame.Rect(x, y, w, h)).copy()
         self._cache[cache_key] = surface
         return surface
+
+    def get_frame(self, frame_id, palette=0, is_flipped=False):
+        """Return the exe-numbered sprite frame, optionally mirrored horizontally."""
+        cache_key = ("frame", frame_id, palette, is_flipped)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        if not 0 <= frame_id < len(SPRITE_FRAMES):
+            raise IndexError(f"Unknown sprite frame id: {frame_id}")
+        surface = self._slice_atlas(SPRITE_FRAMES[frame_id], palette)
+        if is_flipped:
+            surface = pygame.transform.flip(surface, True, False)
+        self._cache[cache_key] = surface
+        return surface
+
+    def get_piece(self, piece_id, palette=0):
+        """Return the exe-numbered building piece."""
+        cache_key = ("piece", piece_id, palette)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        if not 0 <= piece_id < len(BUILDING_PIECES):
+            raise IndexError(f"Unknown building piece id: {piece_id}")
+        surface = self._slice_atlas(BUILDING_PIECES[piece_id], palette)
+        self._cache[cache_key] = surface
+        return surface
+
+    def _slice_atlas(self, region, palette):
+        x, y, w, h = region
+        return self._get_atlas(palette).subsurface(pygame.Rect(x, y, w, h)).copy()
 
     def get_frame_count(self, name):
         from sprite_data import SPRITES
