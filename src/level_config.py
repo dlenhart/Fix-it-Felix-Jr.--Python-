@@ -67,10 +67,14 @@ CENTER_CELL_KIND: dict[FloorType, CellKind] = {
     FloorType.BRICK_TALL: CellKind.PEDIMENT_B,
 }
 
-# [EXE] cell origin x per window slot. The brick floors' center at 104 sits
-# 4px left of symmetric; kept verbatim from the exe.
+# [EXE] cell origin x per window slot. Stone floors are taken verbatim.
+# Brick center is [USER]/[ATLAS]-corrected from the exe's 104: the exe stores it
+# as an 8px tile origin and its draw offset is register-passed and unknown.
+# The brick strip's pilasters sit at world x 101-103 and 138-140, which puts the
+# center bay's midpoint at 120, so the 24px window must start at 108. The user
+# saw 104 as visibly off-center at the 2026-10-21 render checkpoint.
 _STONE_COLUMN_X = (40, 72, 96, 144, 176)
-_BRICK_COLUMN_X = (40, 72, 104, 144, 176)
+_BRICK_COLUMN_X = (40, 72, 108, 144, 176)
 COLUMN_X: dict[FloorType, tuple[int, ...]] = {
     FloorType.GROUND: _STONE_COLUMN_X,
     FloorType.SECOND: _STONE_COLUMN_X,

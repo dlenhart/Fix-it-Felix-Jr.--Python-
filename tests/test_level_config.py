@@ -6,6 +6,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from level_config import (  # noqa: E402
+    COLUMN_X,
     FLOORS_PER_SECTION,
     FloorType,
     LevelConfig,
@@ -40,6 +41,19 @@ def test_floor_sequences_match_spec():
     assert get_floor_sequence(1)[2:-1] == (B, T, B, T, B, B)
     assert get_floor_sequence(3)[2:-1] == (B, T) * 4 + (B, B)
     assert get_floor_sequence(5)[2:-1] == (B, T) * 6 + (B, B)
+
+
+def test_center_cell_is_centered_on_x_120():
+    BUILDING_CENTER_X = 120
+    CENTER_CELL_WIDTH_BRICK = 24
+    CENTER_CELL_WIDTH_STONE = 48
+    for floor_type, column_x in COLUMN_X.items():
+        center_cell_width = (
+            CENTER_CELL_WIDTH_BRICK
+            if floor_type in (FloorType.BRICK_SHORT, FloorType.BRICK_TALL)
+            else CENTER_CELL_WIDTH_STONE
+        )
+        assert column_x[2] + center_cell_width / 2 == BUILDING_CENTER_X
 
 
 def test_level_zero_raises():
