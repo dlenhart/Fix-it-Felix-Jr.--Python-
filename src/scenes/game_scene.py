@@ -14,6 +14,7 @@ from entities.building import Building
 from entities.felix import Felix, RESPAWN_COLUMN, RESPAWN_LOCAL_ROW
 from entities.ralph import Ralph
 from entities.brick import BrickField
+from entities.nicelander import NicelanderDirector
 from scenes.game_phases import GamePhase, LevelStartPhase
 
 PALETTE_COUNT = 5
@@ -43,6 +44,7 @@ class GameScene(Scene):
         self.camera: Camera | None = None
         self.ralph: Ralph | None = None
         self.bricks: BrickField | None = None
+        self.nicelanders: NicelanderDirector | None = None
         self.phase: GamePhase | None = None
         self.input_handler = self._null_input
         self._is_paused = False
@@ -64,6 +66,7 @@ class GameScene(Scene):
         self.ralph = Ralph(self.rng)
         self.ralph.x = RALPH_START_X
         self.bricks = BrickField(self.rng)
+        self.nicelanders = NicelanderDirector(self.rng)
         self.felix.place_at(RESPAWN_LOCAL_ROW, RESPAWN_COLUMN, self.building)
         self.phase = LevelStartPhase()
 
@@ -124,6 +127,8 @@ class GameScene(Scene):
         # TODO: Building.draw takes no alpha, so during the section scroll the
         # building sits at the latest scroll while entities interpolate.
         self.building.draw(screen, self.sprites, self.camera, self.palette)
+        # Nicelanders sit inside the windows, so they draw right after the building.
+        self.nicelanders.draw(screen, self.sprites, self.building, self.camera, self.palette)
         self.bricks.draw(screen, self.sprites, self.camera, self.palette, alpha)
         self.ralph.draw(screen, self.sprites, self.camera, self.palette, alpha)
         self.felix.draw(screen, self.sprites, self.camera, self.palette, alpha)

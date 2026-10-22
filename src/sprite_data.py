@@ -17,6 +17,27 @@ FELIX_HIT_FRAME_HOLD_TICKS = 5
 FELIX_FINAL_HIT_FRAMES = (66, 67, 68, 69, 70, 67, 71, 72, 73, 74)
 FELIX_FINAL_HIT_FRAME_HOLD_TICKS = (30, 12, 12, 12, 12, 12, 12, 2, 16, 0)
 
+# Nicelanders, read from the exe's animation table at 0x419800. The six
+# characters' rise animations are anims 92-97 (the 6-entry table at 0x419e50),
+# each 4 records with origin (6, 15), mode 2 (play once, clamp on the last).
+# Character n uses peek frame 129 + 2n and bust frame 130 + 2n; the records
+# are (peek, bust, bust, peek). Frames are 16x16, the size of a window pane.
+NICELANDER_CHARACTER_COUNT = 6  # [EXE] table 0x419e50
+NICELANDER_RISE_FRAME_ORDER = (0, 1, 1, 0)  # [EXE] 0 = peek, 1 = bust
+NICELANDER_RISE_HOLD_TICKS = (10, 60, 10, 10)  # [EXE] anim 92 records, raw counts
+NICELANDER_HANDOFF_FRAME_INDEX = 2  # [EXE] pass 4: the pie appears at animation frame 2
+
+
+def nicelander_rise_frame_ids(character: int) -> tuple[int, ...]:
+    """Exe frame ids of a character's rise animation, in record order."""
+    peek_frame_id = 129 + 2 * character
+    return tuple(peek_frame_id + order for order in NICELANDER_RISE_FRAME_ORDER)
+
+
+# [EXE] anim 64 (records at 0x419404): the steaming pie, two frames, hold 10, loops.
+PIE_FRAMES = (156, 157)
+PIE_FRAME_HOLD_TICKS = 10
+
 SPRITES = {
     # Building tiles
     # Pure-brick region inside the building art, clear of its corner pillar
@@ -63,7 +84,6 @@ SPRITES = {
     "brick_falling": [(920, 16, 23, 27)],
     "bird_right": [(336, 24, 21, 13)],
     "bird_left": [(360, 30, 21, 13)],
-    "pie": [(353, 238, 11, 9)],
 
     # UI elements
     "title_logo": [(226, 114, 184, 70)],

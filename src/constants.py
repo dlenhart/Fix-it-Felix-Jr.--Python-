@@ -83,9 +83,6 @@ RALPH_SECTION_POSE_TICKS = 60  # [ASSUMED] pose length; timed by the game scene
 BRICK_SPAWN_SPREAD = 32  # [EXE] FUN_0040dd90 x offset is rand(-32..31)
 BRICK_SPAWN_DROP = 8  # [EXE] FUN_0040dd90 y offset below Ralph's feet
 
-PIE_LINGER_TICKS = seconds_to_ticks(5.0)
-PIE_BLINK_WARNING_TICKS = seconds_to_ticks(1.5)   # blinks for the last 1.5s
-BLINK_TOGGLE_TICKS = seconds_to_ticks(0.25)       # pie blink cadence
 
 TITLE_BLINK_TICKS = seconds_to_ticks(0.5)
 GAME_OVER_TICKS = seconds_to_ticks(3.0)

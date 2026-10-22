@@ -1,41 +1,37 @@
+"""The pie a Nicelander hands out (spec section 7)."""
 import pygame
-from entities.building import WINDOW_WIDTH, WINDOW_HEIGHT
-from constants import PIE_LINGER_TICKS, PIE_BLINK_WARNING_TICKS, BLINK_TOGGLE_TICKS
+
+from camera import Camera
+from entities.building import Building, WindowCell
+from entities.felix import Felix
+from sprite_data import PIE_FRAMES, PIE_FRAME_HOLD_TICKS
+from sprite_sheet import SpriteSheet
+
+# FUN_0040ed40 shows each frame for hold + 1 ticks.
+PIE_FRAME_DISPLAY_TICKS = PIE_FRAME_HOLD_TICKS + 1
 
 
 class Pie:
-    def __init__(self, col, row, building):
-        self.col = col
-        self.row = row
-        wx, wy = building.get_window_pixel_pos(col, row)
-        self.x = wx + WINDOW_WIDTH // 2 - 8
-        self.y = wy - 12
-        self.width = 16
-        self.height = 12
-        self.active = True
-        self._timer = 0.0
-        self._ticks = 0
-        self._blink = False
+    """A pie sitting in one window's bottom pane until Felix stands there."""
 
-    def tick(self):
-        self._ticks += 1
-        if self._ticks >= PIE_LINGER_TICKS - PIE_BLINK_WARNING_TICKS:
-            self._blink = (self._ticks // BLINK_TOGGLE_TICKS) % 2 == 1
-        if self._ticks >= PIE_LINGER_TICKS:
-            self.active = False
-        return not self.active
+    def __init__(self, cell: WindowCell):
+        self.cell = cell
+        self._age_ticks = 0
 
-    def collected_by_felix(self, felix, building):
-        return (self.active and
-                felix.col == self.col and
-                felix.row == self.row)
+    def tick(self) -> None:
+        self._age_ticks += 1
 
-    def draw(self, screen, sprite_sheet, palette):
-        if not self.active or self._blink:
-            return
-        try:
-            sprite = sprite_sheet.get_sprite("pie", 0, palette)
-            screen.blit(sprite, (int(self.x), int(self.y)))
-        except (KeyError, IndexError):
-            pygame.draw.ellipse(screen, (255, 220, 150),
-                (int(self.x), int(self.y), self.width, self.height))
+    def is_collected_by(self, felix: Felix, building: Building) -> bool:
+        """True when Felix stands on the pie's cell, in any non-hit state."""
+        if felix.is_in_hit_sequence:
+            return False
+        return building.cell(felix.local_row, felix.column) is self.cell
+
+    def draw(self, screen: pygame.Surface, sprites: SpriteSheet, building: Building,
+             camera: Camera, palette: int) -> None:
+        frame_index = (self._age_ticks // PIE_FRAME_DISPLAY_TICKS) % len(PIE_FRAMES)
+        frame = sprites.get_frame(PIE_FRAMES[frame_index], palette)
+        pane = building.bottom_pane_rect(self.cell)
+        # [ASSUMED] the 16x16 pie frame covers the pane; its origin (5, 15) in the
+        # exe is relative to an anchor we don't model.
+        screen.blit(frame, (pane.x, camera.to_screen_y(pane.y)))

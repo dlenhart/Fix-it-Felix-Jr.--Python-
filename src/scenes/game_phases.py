@@ -91,7 +91,7 @@ class LevelStartPhase(GamePhase):
 
 
 class PlayPhase(GamePhase):
-    """Normal play: Felix, Ralph, then bricks, each tick."""
+    """Normal play: Felix, Nicelanders, Ralph, then bricks, each tick."""
 
     def tick(self, game: GameScene) -> GamePhase | None:
         game.felix.tick(game.input_handler, game.building, game.sound,
@@ -104,6 +104,12 @@ class PlayPhase(GamePhase):
         # them (FUN_0040e220); they stay drawn where they stopped.
         if game.felix.is_in_hit_sequence:
             return None
+
+        if game.felix.last_fixed_points:
+            game.nicelanders.on_window_fixed(
+                game.building.cell(game.felix.local_row, game.felix.column))
+        if game.nicelanders.tick(game.building, game.felix, game.sound):
+            game.ralph.start_rage()
 
         events = game.ralph.tick(game.building, game.level)
         for brick_x, brick_y in events.brick_spawns:
@@ -156,6 +162,7 @@ class SectionClearPhase(GamePhase):
         self.has_started = True
         game.bricks.clear()
         game.bricks.reset_break_budget()
+        game.nicelanders.clear()
         game.felix.state = FelixState.CELEBRATING
         game.ralph.start_section_clear()
         game.sound.play_sfx("section_clear")

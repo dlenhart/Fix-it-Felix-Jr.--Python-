@@ -194,6 +194,13 @@ class Building:
             GLASS_HEIGHT,
         )
 
+    def bottom_pane_rect(self, cell: WindowCell) -> pygame.Rect:
+        """World-space rect of a pane window's bottom pane (16x16 pane art)."""
+        floor = self._floor_for_cell(cell)
+        _, _, _, piece_height = BUILDING_PIECES[CELL_PIECE[cell.kind]]
+        piece_top = floor.bottom_y - piece_height
+        return pygame.Rect(cell.x + PANE_OFFSET_X, piece_top + PANE_BOTTOM_OFFSET_Y, 16, 16)
+
     def draw(
         self,
         screen: pygame.Surface,
