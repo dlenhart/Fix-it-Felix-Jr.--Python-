@@ -12,9 +12,9 @@ from camera import Camera
 from exe_tables import BUILDING_PIECES
 from level_config import (
     CELL_PIECE,
-    CENTER_CELL_KIND,
     COLUMN_X,
     FACADE_X,
+    FLOOR_CELL_KINDS,
     FLOOR_HEIGHT,
     FLOOR_PIECE,
     FLOORS_PER_SECTION,
@@ -46,18 +46,6 @@ GLASS_OFFSET_X = 6  # [EXE] FUN_00404ea0 example rect
 GLASS_WIDTH = 12  # [EXE] FUN_00404ea0 example rect
 GLASS_HEIGHT = 23  # [EXE] FUN_00404ea0 example rect
 
-# [ATLAS] rows between a cell piece's bottom and the bottom of its visible sill,
-# measured in felix0.png. Pane pieces 14/15/16 (24x48) end their sill ledge
-# (rows 37-42) above 5 transparent rows. The door (piece 2, steps) and the
-# arched window (piece 6, balustrade) are opaque to their bottom row.
-SILL_RISE_ABOVE_PIECE_BOTTOM: dict[CellKind, int] = {
-    CellKind.PLAIN: 5,
-    CellKind.PEDIMENT_A: 5,
-    CellKind.PEDIMENT_B: 5,
-    CellKind.DOOR: 0,
-    CellKind.ARCHED: 0,
-}
-
 # [EXE] FUN_00404ea0: the cell's horizontal bounds (cell+0x6c, cell+0x70), as
 # offsets from the drawn piece's left edge. Pane types 0/3 store X*8 .. X*8+0x17;
 # type 4 stores X*8+4 .. X*8+0x1b but its piece is drawn 4px right
@@ -71,23 +59,36 @@ SILL_SPAN_X: dict[CellKind, tuple[int, int]] = {
     CellKind.ARCHED: (4, 0x2B),
 }
 
-# [EXE] FUN_00404ea0: the exe's per-cell sill y (cell+0x74), the y the exe stands
-# Felix on, as rows below the drawn piece's top. Pane types store EBX*8 + 0x24
-# with the piece drawn at EBX*8 (FUN_0040ef90): row 36, just above the visible
-# ledge (rows 37-42). The door (0x138) and arched window (0xfd) store absolute
-# world y; converted here with our layout (street at 320, pieces bottom-aligned
-# on the ground and second floors), which puts the door's at row 56, just above
-# its steps (rows 57-63), like the pane sills.
-_DOOR_PIECE_TOP_Y = STREET_Y - BUILDING_PIECES[CELL_PIECE[CellKind.DOOR]][3]
-_ARCHED_PIECE_TOP_Y = (STREET_Y - FLOOR_HEIGHT[FloorType.GROUND]
-                       - BUILDING_PIECES[CELL_PIECE[CellKind.ARCHED]][3])
-SILL_TOP_BELOW_PIECE_TOP: dict[CellKind, int] = {
+# [EXE] the per-cell sill y (cell+0x74), the y the exe stands Felix on, as a row
+# of the cell's piece. Felix's anims put their last frame row on that y (origin
+# y 47 on 48-tall frames), so his lowest pixel row sits on it.
+# - Pane types: FUN_00404ea0 stores EBX*8 + 0x24 and FUN_00405ca0 draws the
+#   piece at row EBX (FUN_0040ef90), so row 36, the row on top of the ledge
+#   (rows 37-42).
+# - The door (0x138) and the arched window (0xfd) store world y. FUN_00409610
+#   starts the ground floor's bottom at tile row 0x28, y 320 = our STREET_Y, so
+#   the exe's world y is ours. FUN_00405550 draws the door at the ground floor's
+#   top row - 1 (y 0x100) and the arched window at the second floor's top
+#   row + 1 (y 0xd8): rows 56 (on top of the steps, rows 57-63) and 37 (inside
+#   the balustrade, rows 32-39).
+# TODO: FUN_00405550 draws the ground floor's pane cells at the floor's top row
+# and the arched window at the second floor's top row + 1, so both end 8 px
+# above their floor's bottom. We bottom-align every cell piece, which draws those
+# cells, and their sills with them, 8 px lower than the exe. The door, the
+# second floor's panes and both brick floors match.
+SILL_ROW_IN_PIECE: dict[CellKind, int] = {
     CellKind.PLAIN: 0x24,
     CellKind.PEDIMENT_A: 0x24,
     CellKind.PEDIMENT_B: 0x24,
-    CellKind.DOOR: 0x138 - _DOOR_PIECE_TOP_Y,
-    CellKind.ARCHED: 0xFD - _ARCHED_PIECE_TOP_Y,
+    CellKind.DOOR: 0x138 - 0x100,
+    CellKind.ARCHED: 0xFD - 0xD8,
 }
+
+# [EXE] FUN_004070f0, table 0x419e40: a bumped sill obstacle's y offset steps
+# through -4, -2 and -1, 4 ticks each, then rests at 0 again.
+SILL_OBSTACLE_BOUNCE_OFFSETS_Y = (-4, -2, -1)
+SILL_OBSTACLE_BOUNCE_STEP_TICKS = 4
+SILL_OBSTACLE_BOUNCE_TICKS = len(SILL_OBSTACLE_BOUNCE_OFFSETS_Y) * SILL_OBSTACLE_BOUNCE_STEP_TICKS
 
 
 class WindowCell:
@@ -103,6 +104,7 @@ class WindowCell:
         self.bottom_pane = PANE_INTACT
         self.door_damage = PANE_INTACT
         self.has_sill_obstacle = False
+        self._obstacle_bounce_ticks: int | None = None
 
     @property
     def is_damageable(self) -> bool:
@@ -143,6 +145,26 @@ class WindowCell:
         self.bottom_pane = PANE_INTACT
         self.door_damage = PANE_INTACT
 
+    def bump_sill_obstacle(self) -> None:
+        """Start the obstacle's bounce (FUN_004097d0); a bump mid-bounce restarts it."""
+        self._obstacle_bounce_ticks = 0
+
+    def tick_sill_obstacle(self) -> None:
+        """Advance the obstacle's bounce by one tick (FUN_004070f0)."""
+        if self._obstacle_bounce_ticks is None:
+            return
+        self._obstacle_bounce_ticks += 1
+        if self._obstacle_bounce_ticks > SILL_OBSTACLE_BOUNCE_TICKS:
+            self._obstacle_bounce_ticks = None
+
+    @property
+    def sill_obstacle_offset_y(self) -> int:
+        """How far the bouncing obstacle is drawn above its resting y (0 at rest)."""
+        if self._obstacle_bounce_ticks is None or self._obstacle_bounce_ticks == 0:
+            return 0
+        step = (self._obstacle_bounce_ticks - 1) // SILL_OBSTACLE_BOUNCE_STEP_TICKS
+        return SILL_OBSTACLE_BOUNCE_OFFSETS_Y[step]
+
 
 class Floor:
     """One floor of the building, stacked upward in world y."""
@@ -161,15 +183,10 @@ class Floor:
     def _build_cells(self) -> list[WindowCell]:
         if self.floor_type == FloorType.ROOF:
             return []
-        center_kind = CENTER_CELL_KIND[self.floor_type]
         return [
-            WindowCell(
-                center_kind if column == CENTER_COLUMN else CellKind.PLAIN,
-                column,
-                x,
-                self.index,
-            )
-            for column, x in enumerate(COLUMN_X[self.floor_type])
+            WindowCell(kind, column, x, self.index)
+            for column, (kind, x) in enumerate(
+                zip(FLOOR_CELL_KINDS[self.floor_type], COLUMN_X[self.floor_type], strict=True))
         ]
 
 
@@ -202,26 +219,33 @@ class Building:
         return self.floors[cell.floor_index]
 
     def sill_y(self, cell: WindowCell) -> int:
-        """World y where Felix's feet stand on the cell: the bottom of its visible sill.
+        """World y of the cell's sill (the exe's cell+0x74), the row on top of its ledge.
 
-        The exe keeps a per-cell sill y (cell+0x74); cell pieces are drawn
-        bottom-aligned on the floor, so the sill sits a measured rise above it.
+        Felix stands here: his lowest pixel row is drawn on it. Sill obstacles
+        and pies rest on it too, and drop-hazards land at it.
         """
-        return self._floor_for_cell(cell).bottom_y - SILL_RISE_ABOVE_PIECE_BOTTOM[cell.kind]
-
-    def sill_top_y(self, cell: WindowCell) -> int:
-        """World y of the exe's own per-cell sill (cell+0x74): the row just above the ledge.
-
-        The exe places hazards relative to this y. It is not sill_y: on pane
-        windows the exe's sill row is 36 of the piece, sill_y's last row is 42.
-        """
-        return self._piece_top_y(cell) + SILL_TOP_BELOW_PIECE_TOP[cell.kind]
+        return self._piece_top_y(cell) + SILL_ROW_IN_PIECE[cell.kind]
 
     @staticmethod
     def sill_span_x(cell: WindowCell) -> tuple[int, int]:
         """World x bounds (left, right, both inclusive) of the exe's cell (cell+0x6c, +0x70)."""
         left_offset, right_offset = SILL_SPAN_X[cell.kind]
         return cell.x + left_offset, cell.x + right_offset
+
+    @staticmethod
+    def sill_middle_x(cell: WindowCell) -> int:
+        """The middle of the cell's bounds, where the exe centers what sits on a sill (FUN_00406e00)."""
+        left, right = Building.sill_span_x(cell)
+        return (right - left) // 2 + left
+
+    def sill_obstacle_node(self, cell: WindowCell) -> tuple[int, int]:
+        """Resting point of the cell's sill obstacle node (anim 91's origin, the slab's bottom center).
+
+        x is the exe's (FUN_00406e00). [USER] y is the sill, so the slab rests on
+        top of the ledge; the exe hangs it 9 px lower (cell+0x74 + 9), over the
+        ledge's face.
+        """
+        return self.sill_middle_x(cell), self.sill_y(cell)
 
     def _piece_top_y(self, cell: WindowCell) -> int:
         piece_height = BUILDING_PIECES[CELL_PIECE[cell.kind]][3]

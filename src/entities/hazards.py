@@ -20,7 +20,6 @@ from sprite_sheet import SpriteSheet
 
 HAZARD_FLOOR_COUNT = 3  # [EXE] FUN_004067d0 / FUN_00406e00 use the section's top 3 floors
 SILL_OBSTACLES_MAX_PER_FLOOR = 2  # [EXE] FUN_00406e00
-SILL_OBSTACLE_BELOW_SILL_TOP = 9  # [EXE] FUN_00406e00 node y = cell+0x74 + 9
 
 BIRD_SPEED = 0.5  # [EXE] FUN_00406bb0 px/tick
 BIRD_WRAP_LEFT_X = -32  # [EXE] FUN_00406bb0 also the start x of a bird entering from the left
@@ -53,18 +52,16 @@ OBSTACLE_WIDTH, OBSTACLE_HEIGHT = SPRITE_FRAMES[SILL_OBSTACLE_FRAME][2:]  # [EXE
 
 
 def sill_obstacle_rect(building: Building, cell: WindowCell) -> pygame.Rect:
-    """World rect of a cell's sill obstacle frame, placed as FUN_00406e00 places its node.
+    """World rect of a cell's sill obstacle frame, bounce included.
 
-    The node sits at the middle of the cell's bounds, 9 px below the exe's sill
-    row, and anim 91's origin (11, 5) is the slab art's bottom center. On a pane
-    window the art covers rows 40-45: the ledge's front face and the 3 rows
-    under it.
+    The node is Building.sill_obstacle_node, and anim 91's origin (11, 5) is
+    the slab art's bottom center, so on a pane window the art covers rows 31-36,
+    resting on top of the ledge.
     """
-    left, right = building.sill_span_x(cell)
-    node_x = (right - left) // 2 + left
-    node_y = building.sill_top_y(cell) + SILL_OBSTACLE_BELOW_SILL_TOP
+    node_x, node_y = building.sill_obstacle_node(cell)
     origin_x, origin_y = SILL_OBSTACLE_ORIGIN
-    return pygame.Rect(node_x - origin_x, node_y - origin_y, OBSTACLE_WIDTH, OBSTACLE_HEIGHT)
+    return pygame.Rect(node_x - origin_x, node_y + cell.sill_obstacle_offset_y - origin_y,
+                       OBSTACLE_WIDTH, OBSTACLE_HEIGHT)
 
 
 def _hazard_floors(building: Building) -> list[Floor]:
@@ -199,7 +196,7 @@ def _make_drop_hazard(building: Building, floor: Floor, gap_index: int,
     right_cell_left, _ = building.sill_span_x(right_cell)
     gap_middle_x = (right_cell_left - left_cell_right) // 2 + left_cell_right
     return DropHazard(gap_middle_x, ralph_y + DROP_HAZARD_SPAWN_DROP, floor, gap_index,
-                      landing_y=building.sill_top_y(left_cell))
+                      landing_y=building.sill_y(left_cell))
 
 
 class HazardField:
@@ -293,6 +290,9 @@ class HazardField:
 
     def tick(self, building: Building, felix: Felix, sound=None) -> bool:
         """Advance every hazard. Returns True if Felix was hit this tick."""
+        for floor in building.section_floors():
+            for cell in floor.cells:
+                cell.tick_sill_obstacle()
         for bird in self._birds:
             bird.tick()
         for hazard in self._drop_hazards:

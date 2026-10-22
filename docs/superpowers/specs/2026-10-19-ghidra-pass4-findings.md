@@ -194,7 +194,9 @@ The exact pane-state → frame mapping is **[OPEN]**; confirm it visually when b
 - Count per section comes from the level table (from level 3).
 - Placed on a random floor among the section's top 3, **at most 2 per floor**, in a random column whose cell isn't type 2 (arched).
 - Sits at the **sill center, y = sill + 9**, using anim #91 (frame 214). It's attached to the cell (`cell+0x2C`).
-- **Blocks Felix's jump UP from that window** (`FUN_0040b5e0`: up only if `cell+0x2C == 0`). This is the "BLOCK YOUR PATH" rule.
+- **Blocks Felix's drop DOWN from that window** (`FUN_0040b5e0`: down, state 6, only if `cell+0x2C == 0`). This is the "BLOCK YOUR PATH" rule. *(Corrected in Task 10c; this line used to say it blocks the jump up.)*
+- **Bumps a jump UP from the window below** (`FUN_0040bea0`): each rising tick, after the move, once Felix's `y - 36.0` (0x416b60) reaches the obstacle's y, `FUN_004097d0` plays sound 6 and starts the obstacle's bounce, vy is set to 0 and Felix goes to state 9 (`FUN_0040c0d0`): he falls with +0.33/tick (cap 8.0) and lands on the sill he falls through, his own. The same test runs against the obstacle two floors up. Neither test runs on the section's top floor.
+- **Bounce** (`FUN_004070f0`, table 0x419e40): y offsets −4, −2, −1, 4 ticks each, then back to 0.
 
 ## Ralph drop-hazards (`FUN_00409360` spawn, `FUN_004073f0` update; levels 5+)
 
@@ -206,9 +208,10 @@ The exact pane-state → frame mapping is **[OPEN]**; confirm it visually when b
 
 ## Felix movement (`FUN_0040b5e0` idle, `FUN_0040b9f0` walk)
 
-- Input bits: `0x40` hammer, `0x2` up, `0x1` down, plus edge-triggered left/right flags.
+- Input bits: `0x40` hammer, `0x1` up, `0x2` down, plus edge-triggered left/right flags. *(Corrected in Task 10c: bit 0x1 starts state 5, the jump up.)*
 - **Walk:** velocity accelerates by `_DAT_00416b80` per tick up to **±2.0**. Reversing the held direction flips velocity. Felix **stops when he reaches a window** (`FUN_0040b4c0`) or a floor bound, so it's effectively one window per press with acceleration.
-- **Up** is blocked by a sill obstacle on the current window and at the top active floor.
+- **Down** is blocked by a sill obstacle on the current window and at the section's bottom floor. **Up** is bumped by an obstacle above (see Sill obstacles); `FUN_0040b5e0` doesn't refuse it at the top floor.
+- **Sounds:** the walk (case 3) and the hammer (case 8) play none at their start; the hammer press plays index 1 when the window is broken (`FUN_0040b510`); the sideways hop (case 4, `FUN_0040bd90`) plays 0x0F like the jump up.
 - **Hammer complete** (`FUN_0040bc80`): window-fixed scoring (`FUN_00409a70`). **When the broken count reaches 0 → section clear**: bricks cleared, Ralph section pose, section's birds removed.
 
 ## Section clear → scroll (`FUN_00408810`)

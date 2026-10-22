@@ -45,8 +45,10 @@ def nicelander_rise_frame_ids(character: int) -> tuple[int, ...]:
 
 
 # [EXE] anim 64 (records at 0x419404): the steaming pie, two frames, hold 10, loops.
+# Origin (5, 15) is the pie art's bottom center (art columns 0-10, rows 3-15).
 PIE_FRAMES = (156, 157)
 PIE_FRAME_HOLD_TICKS = 10
+PIE_ORIGIN = (5, 15)
 
 # [EXE] anim 0 (the birds), records at 0x418cd4: mode 1 (loops), two records of
 # (right frame, left frame, hold 20, origin 8, 9). Frame sets are right 0, 1 and

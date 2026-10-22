@@ -156,7 +156,7 @@ def test_drop_hazard_lands_in_the_middle_of_its_gap_at_the_exe_sill_row():
         left_cell = hazard.floor.cells[hazard.gap_index]
         right_cell = hazard.floor.cells[hazard.gap_index + 1]
         assert left_cell.x + 23 < hazard.x < right_cell.x
-        assert hazard.landing_y == building.sill_top_y(left_cell)
+        assert hazard.landing_y == building.sill_y(left_cell)
     gap_zero_hazards = [hazard for seed in range(20)
                         for hazard in [drop_one(ralph_x=72.0, seed=seed)[2]]
                         if hazard.gap_index == 0]
@@ -170,14 +170,48 @@ def test_door_side_gaps_skip_the_bottom_two_floors_of_the_first_section():
         assert hazard.floor in building.section_floors()[2:]
 
 
+class ScriptedFloorRandom(random.Random):
+    """Always picks gap 0 or 2 (randrange 0) and the scripted floor indices, counting the picks."""
+
+    def __new__(cls, floor_picks):
+        # random.Random.__new__ would take floor_picks as its seed.
+        return super().__new__(cls)
+
+    def __init__(self, floor_picks):
+        super().__init__(0)
+        self._floor_picks = list(floor_picks)
+        self.floor_pick_count = 0
+
+    def randrange(self, *args, **kwargs):
+        return 0
+
+    def choice(self, sequence):
+        self.floor_pick_count += 1
+        return sequence[self._floor_picks.pop(0)]
+
+
 def test_drop_hazard_rerolls_a_floor_whose_gap_is_taken():
     building = Building(10, random.Random(3))
-    field = HazardField(random.Random(3))
+    rng = ScriptedFloorRandom([1, 1, 3])
+    field = HazardField(rng)
     config = get_level_config(10)
-    for _ in range(3):
-        field.request_drop(StubRalph(x=72.0), building, config)
-    spots = [(id(hazard.floor), hazard.gap_index) for hazard in field.drop_hazards]
-    assert len(spots) == len(set(spots))
+    floors = building.section_floors()
+    field.request_drop(StubRalph(x=72.0), building, config)
+    field.request_drop(StubRalph(x=72.0), building, config)
+    assert rng.floor_pick_count == 3  # the second drop picked floor 1, found it taken, rerolled
+    assert [(hazard.floor, hazard.gap_index) for hazard in field.drop_hazards] == [
+        (floors[1], 0), (floors[3], 0)]
+
+
+def test_drop_hazard_gives_up_after_four_taken_floors():
+    building = Building(10, random.Random(3))
+    rng = ScriptedFloorRandom([1, 1, 1, 1, 1])
+    field = HazardField(rng)
+    config = get_level_config(10)
+    field.request_drop(StubRalph(x=72.0), building, config)
+    field.request_drop(StubRalph(x=72.0), building, config)
+    assert rng.floor_pick_count == 5
+    assert len(field.drop_hazards) == 1
 
 
 def test_falling_drop_hazard_passing_through_felix_does_not_hit():
@@ -334,7 +368,7 @@ def test_bird_hit_costs_exactly_one_life():
     assert not game.felix.is_in_hit_sequence
 
 
-def test_sill_obstacle_rect_follows_the_exe_placement():
+def test_sill_obstacle_rect_rests_on_top_of_the_ledge():
     building = Building(6, random.Random(0))
     for floor in building.section_floors():
         for cell in floor.cells:
@@ -342,11 +376,26 @@ def test_sill_obstacle_rect_follows_the_exe_placement():
                 continue
             rect = sill_obstacle_rect(building, cell)
             left, right = building.sill_span_x(cell)
-            # FUN_00406e00 node: middle of the bounds, exe sill + 9; anim 91 origin (11, 5).
-            assert rect.topleft == ((right - left) // 2 + left - 11,
-                                    building.sill_top_y(cell) + 9 - 5)
+            # Exe x (FUN_00406e00: middle of the bounds); [USER] node on the sill;
+            # anim 91 origin (11, 5).
+            assert rect.topleft == ((right - left) // 2 + left - 11, building.sill_y(cell) - 5)
             assert rect.size == (32, 8)
     plain = building.section_floors()[1].cells[0]
     piece_top = building.section_floors()[1].bottom_y - 48
     rect = sill_obstacle_rect(building, plain)
-    assert rect.topleft == (plain.x, piece_top + 40)  # slab art on piece rows 40-45
+    assert rect.topleft == (plain.x, piece_top + 31)  # slab art on piece rows 31-36, above the ledge
+
+
+def test_sill_obstacle_rect_follows_the_bounce():
+    building = Building(6, random.Random(0))
+    cell = building.section_floors()[2].cells[1]
+    cell.has_sill_obstacle = True
+    resting_y = sill_obstacle_rect(building, cell).y
+    cell.bump_sill_obstacle()
+    field = HazardField(random.Random(0))
+    bystander = StubFelix(pygame.Rect(0, 0, 1, 1))
+    lifts = []
+    for _ in range(13):
+        field.tick(building, bystander)
+        lifts.append(sill_obstacle_rect(building, cell).y - resting_y)
+    assert lifts == [-4] * 4 + [-2] * 4 + [-1] * 4 + [0]

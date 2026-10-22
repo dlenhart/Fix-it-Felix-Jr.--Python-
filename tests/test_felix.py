@@ -90,16 +90,16 @@ def test_feet_on_sill_for_every_cell_kind():
             assert f.world_pos()[1] == b.sill_y(b.cell(local_row, column))
 
 
-def test_sill_y_measured_rise_above_floor_bottom():
+def test_sill_y_is_the_exe_sill_row_of_each_piece():
     b = Building(1, Random(0))
-    floor = b.section_floors()[0]
-    assert b.sill_y(b.cell(0, 0)) == floor.bottom_y - 5  # pane window
+    ground, second = b.section_floors()[:2]
+    assert b.sill_y(b.cell(0, 0)) == ground.bottom_y - 48 + 36  # pane: on top of the ledge
     door = b.cell(0, 2)
     assert door.kind == CellKind.DOOR
-    assert b.sill_y(door) == floor.bottom_y
+    assert b.sill_y(door) == 0x138  # the exe's absolute door sill, on top of the steps
     arched = b.cell(1, 2)
     assert arched.kind == CellKind.ARCHED
-    assert b.sill_y(arched) == b.section_floors()[1].bottom_y
+    assert b.sill_y(arched) == second.bottom_y - 40 + 37
 
 
 def test_hitbox_is_12_by_28_standing_on_feet():
@@ -166,12 +166,88 @@ def test_up_moves_to_next_floor():
     assert f.world_pos() == (b.cell(1, 2).center_x, b.sill_y(b.cell(1, 2)))
 
 
-def test_up_blocked_by_sill_obstacle():
-    f, b = make_felix(0, 2)
-    b.cell(0, 2).has_sill_obstacle = True
+def test_down_blocked_by_an_obstacle_on_his_cell():
+    f, b = make_felix(1, 1)
+    b.cell(1, 1).has_sill_obstacle = True
+    sound = RecordingSound()
+    press(f, b, Action.DOWN, sound)
+    assert f.state == FelixState.IDLE
+    assert f.local_row == 1
+    assert sound.played == []
+
+
+def test_up_from_an_obstacle_cell_is_not_blocked():
+    f, b = make_felix(0, 1)
+    b.cell(0, 1).has_sill_obstacle = True
     press(f, b, Action.UP)
+    tick_n(f, b, 200)
+    assert f.state == FelixState.IDLE and f.local_row == 1
+
+
+def jump_into_obstacle(building, local_row=0, column=1):
+    """Felix jumps up under an obstacle; returns him, the sound log and his y each tick."""
+    building.cell(local_row + 1, column).has_sill_obstacle = True
+    felix = Felix()
+    felix.place_at(local_row, column, building)
+    sound = RecordingSound()
+    press(felix, building, Action.UP, sound)
+    ys = [felix.world_pos()[1]]
+    for _ in range(200):
+        felix.tick(MockInput(), building, sound)
+        ys.append(felix.world_pos()[1])
+        if felix.state == FelixState.IDLE:
+            break
+    return felix, sound, ys
+
+
+def test_jump_up_bumps_an_obstacle_above_and_falls_back():
+    b = Building(1, Random(0))
+    origin_sill = b.sill_y(b.cell(0, 1))
+    f, sound, ys = jump_into_obstacle(b)
     assert f.state == FelixState.IDLE
     assert f.local_row == 0
+    assert f.world_pos() == (b.cell(0, 1).center_x, origin_sill)
+    assert sound.played == ["jump", "obstacle_bump"]
+    # FUN_0040bea0: the bump comes once y - 36 reaches the obstacle's node, the sill above.
+    obstacle_y = b.sill_y(b.cell(1, 1))
+    highest_y = min(ys)
+    assert highest_y - 36 <= obstacle_y < highest_y - 36 + 1.5  # within one rising step
+    assert highest_y < origin_sill
+
+
+def test_bumped_fall_accelerates_by_the_exe_gravity():
+    b = Building(1, Random(0))
+    _, _, ys = jump_into_obstacle(b)
+    apex = ys.index(min(ys))
+    steps = [after - before for before, after in zip(ys[apex:], ys[apex + 1:])]
+    # FUN_0040c0d0: vy starts at 0 and grows 0.33 a tick; the last step snaps onto the sill.
+    assert steps[0] == 0
+    for index, step in enumerate(steps[1:-1]):
+        assert abs(step - FELIX_HIT_FALL_GRAVITY * (index + 1)) < 1e-9
+    assert 0 < steps[-1] <= FELIX_HIT_FALL_GRAVITY * len(steps)
+
+
+def test_bump_bounces_the_obstacle_through_the_exe_offsets():
+    b = Building(1, Random(0))
+    cell = b.cell(1, 1)
+    cell.has_sill_obstacle = True
+    cell.bump_sill_obstacle()
+    offsets = [cell.sill_obstacle_offset_y]
+    for _ in range(14):
+        cell.tick_sill_obstacle()
+        offsets.append(cell.sill_obstacle_offset_y)
+    # FUN_004070f0, table 0x419e40: -4, -2, -1 for 4 ticks each, then rest.
+    assert offsets == [0] + [-4] * 4 + [-2] * 4 + [-1] * 4 + [0, 0]
+
+
+def test_jump_up_without_an_obstacle_above_does_not_bump():
+    f, b = make_felix(0, 1)
+    b.cell(0, 3).has_sill_obstacle = True  # another column
+    sound = RecordingSound()
+    press(f, b, Action.UP, sound)
+    tick_n(f, b, 200, sound)
+    assert f.local_row == 1
+    assert sound.played == ["jump"]
 
 
 def test_up_blocked_on_top_floor_and_down_on_bottom():
@@ -189,10 +265,10 @@ def test_one_swing_fixes_window_and_scores_100():
     b.damage(b.cell(1, 1), is_heavy=True)  # keeps the section from clearing
     sound = RecordingSound()
     swing(f, b, sound)
+    tick_n(f, b, 100, sound)
     assert not b.cell(0, 1).is_broken
     assert f.score == 100
-    assert "hammer_hit" in sound.played
-    assert "window_fixed" not in sound.played
+    assert sound.played == ["hammer_swing"]  # FUN_0040b510 at the press; the fix is silent
 
 
 def test_last_window_scores_500_and_flags_last_fixed_points():
@@ -210,7 +286,24 @@ def test_last_window_scores_500_and_flags_last_fixed_points():
     assert 500 in seen
     tick_n(f, b, 1)
     assert f.last_fixed_points == 0  # reset at the start of the next tick
-    assert "window_fixed" in sound.played
+    assert sound.played == ["hammer_swing"]
+
+
+def test_walk_start_plays_no_sound():
+    f, b = make_felix(0, 2)
+    sound = RecordingSound()
+    press(f, b, Action.RIGHT, sound)
+    tick_n(f, b, 100, sound)
+    assert f.column == 3
+    assert sound.played == []
+
+
+def test_swing_at_intact_window_is_silent():
+    f, b = make_felix(0, 1)
+    sound = RecordingSound()
+    swing(f, b, sound)
+    tick_n(f, b, 100, sound)
+    assert sound.played == []
 
 
 def test_swing_at_intact_window_scores_nothing():
@@ -453,3 +546,7 @@ def test_sound_map_uses_the_exe_indices():
     assert SOUND_MAP["jump"] == "sound15"  # FUN_0040c3d0 case 5: index 0x0F
     assert SOUND_MAP["drop_down"] == "sound17"  # FUN_0040c3d0 case 6: index 0x11
     assert SOUND_MAP["window_break"] == "sound5"  # FUN_00409840: index 5
+    assert SOUND_MAP["hammer_swing"] == "sound1"  # FUN_0040b510: index 1
+    assert SOUND_MAP["obstacle_bump"] == "sound6"  # FUN_004097d0: index 6
+    for name in ("felix_move", "hammer_extended", "hammer_hit", "window_fixed"):
+        assert name not in SOUND_MAP  # no exe basis

@@ -11,6 +11,8 @@ import pytest  # noqa: E402
 
 from camera import Camera  # noqa: E402
 from entities.building import Building  # noqa: E402
+from entities.felix import Felix  # noqa: E402
+from entities.pie import Pie  # noqa: E402
 from sprite_sheet import SpriteSheet  # noqa: E402
 
 
@@ -41,3 +43,31 @@ def test_draw_leaves_pixels_near_bottom():
         for y in range(256, 320)
     )
     assert has_drawn_pixel
+
+
+def drawn_bounds(draw):
+    """Bounding rect of what draw(screen) paints on a transparent screen."""
+    screen = pygame.Surface((240, 320), pygame.SRCALPHA)
+    screen.fill((0, 0, 0, 0))
+    draw(screen)
+    return screen.get_bounding_rect()
+
+
+def test_felix_lowest_pixel_row_is_the_sill():
+    building = Building(3, random.Random(0))
+    for local_row, column in ((0, 0), (0, 2), (1, 2), (2, 2), (3, 4)):
+        felix = Felix()
+        felix.place_at(local_row, column, building)
+        bounds = drawn_bounds(lambda screen: felix.draw(screen, SpriteSheet(), Camera(), 0))
+        assert bounds.bottom - 1 == building.sill_y(building.cell(local_row, column))
+
+
+def test_pie_rests_on_the_sill_centered_on_the_cell():
+    building = Building(3, random.Random(0))
+    for local_row, column in ((1, 0), (2, 2), (3, 4)):
+        cell = building.cell(local_row, column)
+        pie = Pie(cell)
+        bounds = drawn_bounds(
+            lambda screen: pie.draw(screen, SpriteSheet(), building, Camera(), 0))
+        assert bounds.bottom - 1 == building.sill_y(cell)
+        assert bounds.left + bounds.width // 2 == building.sill_middle_x(cell)

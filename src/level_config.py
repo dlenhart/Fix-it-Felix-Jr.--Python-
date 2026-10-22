@@ -17,12 +17,12 @@ class FloorType(IntEnum):
 
 
 class CellKind(IntEnum):
-    """Kinds of cell that can occupy a window slot on a floor."""
-    PLAIN = 0
+    """Kinds of cell that can occupy a window slot; the values are the exe's cell types."""
+    PLAIN = 0  # stone-floor window
     DOOR = 1
     ARCHED = 2
-    PEDIMENT_A = 3
-    PEDIMENT_B = 4
+    PEDIMENT_A = 3  # brick-floor side window
+    PEDIMENT_B = 4  # brick-floor center window
 
 
 FLOORS_PER_SECTION = 4  # [EXE] FUN_00409610
@@ -58,13 +58,17 @@ CELL_PIECE: dict[CellKind, int] = {
     CellKind.PEDIMENT_B: 15,
 }
 
-# Roof has no center cell. Which pediment (A=14, B=15) goes on which brick
-# type is open in the spec. [ASSUMED, verify in Task 4]
-CENTER_CELL_KIND: dict[FloorType, CellKind] = {
-    FloorType.GROUND: CellKind.DOOR,
-    FloorType.SECOND: CellKind.ARCHED,
-    FloorType.BRICK_SHORT: CellKind.PEDIMENT_A,
-    FloorType.BRICK_TALL: CellKind.PEDIMENT_B,
+# [EXE] FUN_00405550: the cell type of each window slot, left to right, per
+# floor type (FUN_00404ea0 picks the piece: type 0 -> 16, 1 -> door 2,
+# 2 -> arched 6, 3 -> 14, 4 -> 15). Stone floors are 0,0,1|2,0,0; both brick
+# floor types are 3,3,4,3,3. The roof has no cells.
+_STONE_SIDE = CellKind.PLAIN
+_BRICK_SIDE = CellKind.PEDIMENT_A
+FLOOR_CELL_KINDS: dict[FloorType, tuple[CellKind, ...]] = {
+    FloorType.GROUND: (_STONE_SIDE, _STONE_SIDE, CellKind.DOOR, _STONE_SIDE, _STONE_SIDE),
+    FloorType.SECOND: (_STONE_SIDE, _STONE_SIDE, CellKind.ARCHED, _STONE_SIDE, _STONE_SIDE),
+    FloorType.BRICK_SHORT: (_BRICK_SIDE, _BRICK_SIDE, CellKind.PEDIMENT_B, _BRICK_SIDE, _BRICK_SIDE),
+    FloorType.BRICK_TALL: (_BRICK_SIDE, _BRICK_SIDE, CellKind.PEDIMENT_B, _BRICK_SIDE, _BRICK_SIDE),
 }
 
 # [EXE] cell origin x per window slot. Stone floors are taken verbatim.

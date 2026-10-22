@@ -80,7 +80,7 @@ Times assume 60 ticks/sec. Coordinates are in the 240×320 internal space **[EXE
 
 - Stands on a window's sill; moves between the 5 cells of a floor and between the active section's 4 floors. **[EXE]**
 - **Walk:** accelerates toward **±2.0 px/tick** and stops at the next cell. **[EXE]** The acceleration value is a runtime-initialized global (`_DAT_00416b80`): **0.5 px/tick² [ASSUMED]**.
-- **Up** is blocked by a **sill obstacle** on the current cell, and at the section's top floor. **[EXE]** Down is blocked at the section's bottom floor. **[ASSUMED]**
+- **Down** is blocked by a **sill obstacle** on the current cell and at the section's bottom floor. **[EXE]** (`FUN_0040b5e0`) **Up** is bumped back by a sill obstacle on the cell above (§8). **[EXE]** Up is refused at the section's top floor. **[ASSUMED]** (`FUN_0040b5e0` doesn't refuse it; the exe's jump probably rises and falls back to the same sill.)
 - **Hammer:** existing raise/strike swing; on completion, fix the current window if broken (§3). **[EXE]**
 - **Initial lives 10. [EXE] [USER: keep 10]**
 - **Bonus life every 5000 points. [EXE string]**
@@ -117,7 +117,7 @@ Times assume 60 ticks/sec. Coordinates are in the 240×320 internal space **[EXE
 
 ## 8. Hazards
 
-- **Sill obstacles [EXE]** (level 3+): per section, placed on a random floor among the section's **top 3**, **max 2 per floor**, random non-arched cell; drawn at the sill center (frame 214). **Blocks jumping up from that cell.** That's the "BLOCK YOUR PATH" rule. What "JUMP OVER" refers to is **[OPEN]**.
+- **Sill obstacles [EXE]** (level 3+): per section, placed on a random floor among the section's **top 3**, **max 2 per floor**, random non-arched cell; drawn at the sill center (frame 214), resting on top of the ledge **[USER]** (the exe hangs it 9 px lower, over the ledge's face). **Blocks dropping down from that cell, and bumps a jump up from the cell below:** sound 6, Felix falls back to his own sill, and the slab bounces −4, −2, −1 px for 4 ticks each. **[EXE]** That's the "BLOCK YOUR PATH" rule. What "JUMP OVER" refers to is **[OPEN]**.
 - **Birds [EXE]** (level 4+): pairs per section, one from x = 272 (flipped) and one from x = −32, each on a random floor of the section's top 3; **0.5 px/tick**, wrap −32 ↔ 272; contact hits Felix unless invulnerable; removed on section clear.
 - **Ralph drop-hazards [EXE]** (level 5+): up to the level limit (max 3 at once); spawned at Ralph's y + 8, aimed at a column near Ralph and a random floor of the section; fall 1.9 px/tick to that sill and stay; touching hits Felix, then it blinks 4 times and vanishes. Sprite **[OPEN]**.
 

@@ -4,7 +4,7 @@ import pygame
 from camera import Camera
 from entities.building import Building, WindowCell
 from entities.felix import Felix
-from sprite_data import PIE_FRAMES, PIE_FRAME_HOLD_TICKS
+from sprite_data import PIE_FRAMES, PIE_FRAME_HOLD_TICKS, PIE_ORIGIN
 from sprite_sheet import SpriteSheet
 
 # FUN_0040ed40 shows each frame for hold + 1 ticks.
@@ -12,7 +12,7 @@ PIE_FRAME_DISPLAY_TICKS = PIE_FRAME_HOLD_TICKS + 1
 
 
 class Pie:
-    """A pie sitting in one window's bottom pane until Felix stands there."""
+    """A pie sitting on one window's sill until Felix stands there."""
 
     def __init__(self, cell: WindowCell):
         self.cell = cell
@@ -31,7 +31,8 @@ class Pie:
              camera: Camera, palette: int) -> None:
         frame_index = (self._age_ticks // PIE_FRAME_DISPLAY_TICKS) % len(PIE_FRAMES)
         frame = sprites.get_frame(PIE_FRAMES[frame_index], palette)
-        pane = building.bottom_pane_rect(self.cell)
-        # [ASSUMED] the 16x16 pie frame covers the pane; its origin (5, 15) in the
-        # exe is relative to an anchor we don't model.
-        screen.blit(frame, (pane.x, camera.to_screen_y(pane.y)))
+        # [USER] centered on the cell and resting on top of the sill ledge, on the
+        # sill obstacle's line; where the exe puts the pie's node isn't decoded.
+        node_x, node_y = building.sill_middle_x(self.cell), building.sill_y(self.cell)
+        origin_x, origin_y = PIE_ORIGIN
+        screen.blit(frame, (node_x - origin_x, camera.to_screen_y(node_y) - origin_y))

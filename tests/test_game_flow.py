@@ -254,6 +254,43 @@ def test_respawn_avoids_a_frozen_brick_above_the_hit_cell():
     assert not game.bricks.is_falling_toward(game.felix.hitbox())
 
 
+def hit_felix_and_freeze_bricks_above(game, columns, height_above_head):
+    """Hit Felix with a brick, then hang frozen bricks over the given columns of his floor."""
+    game.bricks.clear()
+    spawn_brick_on_felix(game)
+    game.tick(MockInput())
+    assert game.felix.is_in_hit_sequence
+    head_y = game.felix.hitbox().top
+    for column in columns:
+        cell = game.building.cell(game.felix.local_row, column)
+        game.bricks.spawn(cell.center_x, head_y - height_above_head)
+
+
+def test_respawn_avoids_a_brick_still_falling_from_floors_above():
+    _, game = make_game()
+    reach_play(game)
+    hit_column = game.felix.column
+    lives_before = game.felix.lives
+    hit_felix_and_freeze_bricks_above(game, [hit_column], height_above_head=150)
+
+    tick_until(game, lambda: not game.felix.is_in_hit_sequence)
+    assert game.felix.column != hit_column
+    assert game.felix.lives == lives_before - 1
+    assert not game.bricks.is_falling_toward(game.felix.hitbox())
+
+
+def test_respawn_skips_a_threatened_neighbour_for_the_next_safe_column():
+    _, game = make_game()
+    reach_play(game)
+    assert game.felix.column == 2
+    # Neighbours 1 and 3 tie on distance and on distance to the center; 1 comes first.
+    hit_felix_and_freeze_bricks_above(game, [2, 1], height_above_head=4)
+
+    tick_until(game, lambda: not game.felix.is_in_hit_sequence)
+    assert game.felix.column == 3
+    assert not game.bricks.is_falling_toward(game.felix.hitbox())
+
+
 def test_final_hit_freezes_ralph_and_bricks():
     _, game = make_game()
     reach_play(game)

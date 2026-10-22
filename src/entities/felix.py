@@ -7,7 +7,7 @@ from sprite_data import (
     FELIX_HIT_FRAMES_RIGHT, FELIX_HIT_FRAMES_LEFT, FELIX_HIT_FRAME_HOLD_TICKS,
     FELIX_FINAL_HIT_FRAMES, FELIX_FINAL_HIT_FRAME_HOLD_TICKS,
 )
-from entities.building import CENTER_COLUMN, FIX_LAST_WINDOW_SCORE
+from entities.building import CENTER_COLUMN
 from level_config import FLOORS_PER_SECTION, STREET_Y
 from constants import (
     INITIAL_LIVES, BONUS_LIFE_THRESHOLD, INVULNERABLE_TICKS,
@@ -24,7 +24,13 @@ HITBOX_WIDTH = 12   # [ASSUMED]
 HITBOX_HEIGHT = 28  # [ASSUMED]
 INVULNERABLE_BLINK_TICKS = 4
 
-FELIX_HIT_FALL_GRAVITY = 0.33  # [EXE] double at 0x416be8, FUN_0040c1a0
+# [EXE] double at 0x416be8: the hit fall (FUN_0040c1a0) and the fall back from a
+# bumped jump (FUN_0040c0d0) both add it to vy each tick.
+FELIX_HIT_FALL_GRAVITY = 0.33
+FELIX_FALL_MAX_SPEED = 8.0  # [EXE] FUN_0040c0d0 caps vy at 0x416b58
+# [EXE] FUN_0040bea0 (0x416b60 = 36.0): a rising jump bumps once y - 36 (5 px
+# above Felix's hat) reaches the y of the sill obstacle's node above.
+FELIX_BUMP_POINT_ABOVE_FEET = 36
 FELIX_HIT_FALL_BELOW_STREET = 0x28  # [EXE] FUN_0040c1a0: building bottom + 0x28
 FELIX_RESPAWN_DELAY_TICKS = 60  # [EXE] FUN_0040c1a0 (0x3c)
 FELIX_FINAL_HIT_SETTLE_FRAME_INDEX = 7  # [EXE] FUN_0040c1a0 waits for anim frame 7
@@ -53,6 +59,7 @@ class FelixState(enum.Enum):
     IDLE = 0
     WALK_HORIZONTAL = 1
     JUMPING = 4
+    JUMP_BUMPED = 7
     HAMMERING = 5
     HAMMER_EXTENDED = 6
     HIT_ANIM = 8
@@ -202,11 +209,13 @@ class Felix:
         elif self.state == FelixState.WALK_HORIZONTAL:
             self._tick_walk_horizontal(input_handler, building)
         elif self.state == FelixState.JUMPING:
-            self._tick_jumping(building)
+            self._tick_jumping(building, sound)
+        elif self.state == FelixState.JUMP_BUMPED:
+            self._tick_jump_bumped(building)
         elif self.state == FelixState.HAMMERING:
-            self._tick_hammering(sound)
+            self._tick_hammering()
         elif self.state == FelixState.HAMMER_EXTENDED:
-            self._tick_hammer_extended(building, sound)
+            self._tick_hammer_extended(building)
         elif self.state == FelixState.HIT_ANIM:
             self._tick_hit_anim()
         elif self.state == FelixState.HIT_FALL:
@@ -225,20 +234,22 @@ class Felix:
             self.state = FelixState.HAMMERING
             self._state_ticks = 0
             self._hammer_offset = FELIX_HAMMER_START_OFFSET
-            if sound:
-                sound.play_sfx("hammer_hit")
+            # FUN_0040b510: the swing plays sound 1 only at a broken window.
+            if sound and self._current_cell(building).is_broken:
+                sound.play_sfx("hammer_swing")
             return
 
         if input_handler.is_just_pressed(Action.LEFT):
-            self._start_walk(-1, sound)
+            self._start_walk(-1)
         elif input_handler.is_just_pressed(Action.RIGHT):
-            self._start_walk(1, sound)
+            self._start_walk(1)
         elif input_handler.is_just_pressed(Action.UP):
             self._start_jump(1, building, sound)
         elif input_handler.is_just_pressed(Action.DOWN):
             self._start_jump(-1, building, sound)
 
-    def _start_walk(self, direction, sound):
+    def _start_walk(self, direction):
+        # The exe's walk start (FUN_0040c3d0 case 3) plays no sound.
         self.facing_right = direction > 0
         target_column = self.column + direction
         if not 0 <= target_column < COLUMN_COUNT:
@@ -249,17 +260,15 @@ class Felix:
         self._vel_x = 0.0
         self.state = FelixState.WALK_HORIZONTAL
         self._state_ticks = 0
-        if sound:
-            sound.play_sfx("felix_move")
 
     def _start_jump(self, row_step, building, sound):
         target_row = self.local_row + row_step
         if not 0 <= target_row < FLOORS_PER_SECTION:
             return
-        # TODO: in the exe a cell's obstacle blocks the drop DOWN from it (FUN_0040b5e0
-        # needs cell+0x2c == 0 for state 6) and the jump UP bumps on an obstacle above
-        # (FUN_0040bea0 -> FUN_004097d0, sound 6, falls back); this blocks UP instead.
-        if row_step > 0 and self._current_cell(building).has_sill_obstacle:
+        # FUN_0040b5e0 starts the drop down (state 6) only when the cell has no
+        # obstacle (cell+0x2c == 0). An obstacle above doesn't stop the jump up;
+        # it bumps it (_tick_jumping).
+        if row_step < 0 and self._current_cell(building).has_sill_obstacle:
             return
         self._target_row = target_row
         self.state = FelixState.JUMPING
@@ -293,7 +302,7 @@ class Felix:
         self._walk_origin_column, self._target_column = (
             self._target_column, self._walk_origin_column)
 
-    def _tick_jumping(self, building):
+    def _tick_jumping(self, building, sound):
         target_x, target_y = self._anchor(building, self._target_row, self.column)
         dist_x = target_x - self._pos_x
         dist_y = target_y - self._pos_y
@@ -307,18 +316,51 @@ class Felix:
 
         self._pos_x += (dist_x / dist) * FELIX_VERTICAL_MOVE_RATE
         self._pos_y += (dist_y / dist) * FELIX_VERTICAL_MOVE_RATE
+        if self._target_row > self.local_row:
+            self._bump_on_obstacle_above(building, sound)
 
-    def _tick_hammering(self, sound):
+    def _bump_on_obstacle_above(self, building, sound):
+        """FUN_0040bea0: a rising jump that reaches the obstacle above bumps and falls back.
+
+        The exe tests after each tick's move. It also tests the obstacle two
+        floors up, which its jump (about 60 px high) can reach; ours stops at the
+        target sill, so that one is out of reach and not modelled.
+        """
+        cell_above = building.cell(self._target_row, self.column)
+        if not cell_above.has_sill_obstacle:
+            return
+        _, obstacle_y = building.sill_obstacle_node(cell_above)
+        if self._pos_y - FELIX_BUMP_POINT_ABOVE_FEET > obstacle_y:
+            return
+        cell_above.bump_sill_obstacle()
+        if sound:
+            sound.play_sfx("obstacle_bump")  # FUN_004097d0: sound 6
+        self._vel_y = 0.0
+        self.state = FelixState.JUMP_BUMPED
+
+    def _tick_jump_bumped(self, building):
+        # FUN_0040c0d0 (state 9): move, land on the sill he falls through (his own,
+        # since he never left the cell), else fall faster.
+        self._pos_y += self._vel_y
+        _, sill_y = self._anchor(building, self.local_row, self.column)
+        if self._pos_y >= sill_y:
+            self._snap_to_anchor(building)
+            self._vel_y = 0.0
+            self.state = FelixState.IDLE
+            return
+        self._vel_y = min(self._vel_y + FELIX_HIT_FALL_GRAVITY, FELIX_FALL_MAX_SPEED)
+
+    def _tick_hammering(self):
+        # The exe's hammer anim plays no sound of its own; the swing's sound is at the press.
         self._state_ticks += 1
         self._hammer_offset += HAMMER_ANIM_RATE
         if self._hammer_offset < 0.0:
             return
         self.state = FelixState.HAMMER_EXTENDED
         self._state_ticks = 0
-        if sound:
-            sound.play_sfx("hammer_extended")
 
-    def _tick_hammer_extended(self, building, sound):
+    def _tick_hammer_extended(self, building):
+        # The fix (FUN_0040bc80 -> FUN_00409a70) plays no sound either.
         self._state_ticks += 1
         if self._state_ticks < HAMMER_EXTENDED_TICKS:
             return
@@ -328,8 +370,6 @@ class Felix:
             return
         self.last_fixed_points = points
         self.add_score(points)
-        if sound:
-            sound.play_sfx("window_fixed" if points == FIX_LAST_WINDOW_SCORE else "hammer_hit")
 
     def _tick_hit_anim(self):
         self._hit_anim_ticks += 1
@@ -397,7 +437,7 @@ class Felix:
 
     @staticmethod
     def _anchor(building, local_row, column):
-        """Standing point: the cell's center x on its sill (the exe's cell+0x74)."""
+        """Standing point: the cell's center x on its sill (the exe's cell+0x74, FUN_0040c0d0)."""
         cell = building.cell(local_row, column)
         return cell.center_x, float(building.sill_y(cell))
 
@@ -421,7 +461,7 @@ class Felix:
             return ("felix_hammer_right" if self.facing_right else "felix_hammer_left"), 0
         if self.state == FelixState.HAMMER_EXTENDED:
             return ("felix_strike_right" if self.facing_right else "felix_strike_left"), 0
-        if self.state in (FelixState.WALK_HORIZONTAL, FelixState.JUMPING):
+        if self.state in (FelixState.WALK_HORIZONTAL, FelixState.JUMPING, FelixState.JUMP_BUMPED):
             name = "felix_walk_right" if self.facing_right else "felix_walk_left"
             frame = (self._anim_ticks // SPRITE_FRAME_HOLD_TICKS) % max(sprites.get_frame_count(name), 1)
             return name, frame
@@ -447,16 +487,23 @@ class Felix:
             left = center_x - FELIX_HEAD_CENTER_X[sprite_name]
         else:
             left = center_x - sprite.get_width() / 2
-        top = camera.to_screen_y(feet_y, alpha) - sprite.get_height()
-        screen.blit(sprite, (round(left), top))
+        screen.blit(sprite, (round(left), _sprite_top(camera, feet_y, alpha, sprite)))
 
     def _draw_hit_frame(self, screen, sprites, camera, palette, center_x, feet_y, alpha):
         sprite = sprites.get_frame(self._hit_frame_id(), palette)
         # The hit frames sit off-center in their atlas cells (frame 64's body is
         # 5px right of center), so center the visible art to keep Felix planted.
         left = center_x - sprite.get_bounding_rect().centerx
-        top = camera.to_screen_y(feet_y, alpha) - sprite.get_height()
-        screen.blit(sprite, (round(left), top))
+        screen.blit(sprite, (round(left), _sprite_top(camera, feet_y, alpha, sprite)))
+
+
+def _sprite_top(camera, feet_y, alpha, sprite):
+    """Screen y of a Felix frame's top: its last row sits on feet_y.
+
+    Felix's anims use origin y 47 on 48-tall frames (anims 4, 9, 10, 15), so
+    the exe draws the frame's bottom row on the node's y, the sill.
+    """
+    return camera.to_screen_y(feet_y, alpha) - (sprite.get_height() - 1)
 
 
 def _frame_index_after(hold_ticks_per_frame, elapsed_ticks):

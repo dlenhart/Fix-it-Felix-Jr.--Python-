@@ -7,7 +7,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from entities.building import Building  # noqa: E402
-from level_config import CellKind  # noqa: E402
+from level_config import CELL_PIECE, CellKind, FloorType  # noqa: E402
 
 
 def test_level_one_layout():
@@ -96,10 +96,37 @@ def test_exe_sill_row_and_bounds():
     ground, second, brick = b.section_floors()[:3]
     pane = ground.cells[0]
     # FUN_00404ea0: pane sill at piece top + 0x24, bounds X*8 .. X*8+0x17.
-    assert b.sill_top_y(pane) == ground.bottom_y - 48 + 36
+    assert b.sill_y(pane) == ground.bottom_y - 48 + 36
     assert b.sill_span_x(pane) == (40, 63)
-    assert b.sill_top_y(ground.cells[2]) == 0x138  # the door's absolute exe sill
-    assert b.sill_top_y(second.cells[2]) == 0xFD  # the arched window's
+    assert b.sill_y(ground.cells[2]) == 0x138  # the door's piece top is the exe's (y 256)
+    # The arched sill is the exe's row 37 of the piece, on our piece, drawn 8 px lower.
+    assert b.sill_y(second.cells[2]) == 0xFD + 8
+    assert b.sill_y(brick.cells[0]) == brick.bottom_y - 48 + 36
     assert b.sill_span_x(ground.cells[2]) == (100, 139)
     # Type 4 cell: exe stores X*8+4 .. X*8+0x1b with X*8 = 104, and draws the piece at 108.
     assert b.sill_span_x(brick.cells[2]) == (108, 131)
+
+
+def test_brick_floors_use_the_exe_cell_types():
+    # FUN_00405550: brick floors are types 3,3,4,3,3 (pieces 14,14,15,14,14);
+    # stone floors 0,0,1|2,0,0 (pieces 16,16,door|arched,16,16).
+    b = Building(5, random.Random(0))
+    for floor in b.floors:
+        pieces = [CELL_PIECE[cell.kind] for cell in floor.cells]
+        if floor.floor_type in (FloorType.BRICK_SHORT, FloorType.BRICK_TALL):
+            assert pieces == [14, 14, 15, 14, 14]
+        elif floor.floor_type == FloorType.GROUND:
+            assert pieces == [16, 16, 2, 16, 16]
+        elif floor.floor_type == FloorType.SECOND:
+            assert pieces == [16, 16, 6, 16, 16]
+        else:
+            assert pieces == []
+
+
+def test_sill_obstacle_node_rests_on_the_sill_at_the_bounds_middle():
+    b = Building(5, random.Random(0))
+    brick = b.section_floors()[2]
+    side, center = brick.cells[0], brick.cells[2]
+    assert b.sill_middle_x(side) == side.x + 11  # (0x17 - 0) // 2
+    assert b.sill_middle_x(center) == 108 + 11  # type 4 bounds 108..131
+    assert b.sill_obstacle_node(side) == (side.x + 11, b.sill_y(side))
