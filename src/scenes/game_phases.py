@@ -12,7 +12,8 @@ import pygame
 from constants import GAME_WIDTH, GAME_HEIGHT, RALPH_SECTION_POSE_TICKS
 from entities.felix import FelixState
 from font_renderer import scale_text_to_fit
-from level_config import STREET_Y
+from entities.hazards import clear_sill_obstacles
+from level_config import STREET_Y, get_level_config
 
 if TYPE_CHECKING:
     from scenes.game_scene import GameScene
@@ -39,6 +40,7 @@ class GamePhase:
 def _enter_play(game: GameScene) -> GamePhase:
     """Hand off to play: Ralph leaves his idle pose and starts the patrol from the ledge."""
     game.ralph.place_on_ledge(game.building)
+    game.hazards.start_section(game.building, get_level_config(game.level))
     return PlayPhase()
 
 
@@ -91,11 +93,15 @@ class LevelStartPhase(GamePhase):
 
 
 class PlayPhase(GamePhase):
-    """Normal play: Felix, Nicelanders, Ralph, then bricks, each tick."""
+    """Normal play: Felix, Nicelanders, Ralph, then bricks and hazards, each tick."""
+
+    def __init__(self) -> None:
+        self._was_felix_in_hit_sequence = False
 
     def tick(self, game: GameScene) -> GamePhase | None:
         game.felix.tick(game.input_handler, game.building, game.sound,
-                        is_spot_threatened=game.bricks.is_falling_toward)
+                        is_spot_threatened=lambda hitbox: self._is_spot_threatened(game, hitbox))
+        has_respawned = self._has_felix_respawned(game)
         # Ruling 13: the game ends after the last death plays out, not on the fatal hit.
         if game.felix.is_game_over:
             game.end_game()
@@ -114,13 +120,34 @@ class PlayPhase(GamePhase):
         events = game.ralph.tick(game.building, game.level)
         for brick_x, brick_y in events.brick_spawns:
             game.bricks.spawn(brick_x, brick_y)
-        # events.is_drop_hazard_requested is ignored until Task 10 adds hazards.
+        if events.is_drop_hazard_requested:
+            game.hazards.request_drop(game.ralph, game.building, get_level_config(game.level))
 
         game.bricks.tick(game.building, game.felix, game.level, game.sound)
+        if has_respawned:
+            # Before the tick: the bird that hit Felix is frozen on him and would hit again.
+            game.hazards.reset_birds()
+        game.hazards.tick(game.building, game.felix, game.sound)
 
         if game.building.is_section_clear():
             return SectionClearPhase()
         return None
+
+
+    @staticmethod
+    def _is_spot_threatened(game: GameScene, hitbox: pygame.Rect) -> bool:
+        """Respawn predicate: a falling brick or drop-hazard is bearing down on the spot."""
+        return game.bricks.is_falling_toward(hitbox) or game.hazards.is_threatening(hitbox)
+
+    def _has_felix_respawned(self, game: GameScene) -> bool:
+        """True on the tick Felix leaves the hit sequence (FUN_0040c1a0 -> FUN_00406db0).
+
+        Detected as a transition because Felix owns the respawn and exposes no event for it.
+        """
+        is_in_hit_sequence = game.felix.is_in_hit_sequence
+        has_respawned = self._was_felix_in_hit_sequence and not is_in_hit_sequence
+        self._was_felix_in_hit_sequence = is_in_hit_sequence
+        return has_respawned
 
 
 class SectionClearPhase(GamePhase):
@@ -162,6 +189,8 @@ class SectionClearPhase(GamePhase):
         self.has_started = True
         game.bricks.clear()
         game.bricks.reset_break_budget()
+        game.hazards.clear()
+        clear_sill_obstacles(game.building)
         game.nicelanders.clear()
         game.felix.state = FelixState.CELEBRATING
         game.ralph.start_section_clear()

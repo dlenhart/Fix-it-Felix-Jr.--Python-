@@ -38,6 +38,14 @@ def nicelander_rise_frame_ids(character: int) -> tuple[int, ...]:
 PIE_FRAMES = (156, 157)
 PIE_FRAME_HOLD_TICKS = 10
 
+# [EXE] anim 0 (the birds), records at 0x418cd4: mode 1 (loops), two records of
+# (right frame, left frame, hold 20, origin 8, 9). Frame sets are right 0, 1 and
+# left 2, 3. Which set goes with which travel direction is [ASSUMED]: a bird
+# moving right shows the right-facing set.
+BIRD_FRAMES_RIGHT = (0, 1)
+BIRD_FRAMES_LEFT = (2, 3)
+BIRD_FRAME_HOLD_TICKS = 20
+
 SPRITES = {
     # Building tiles
     # Pure-brick region inside the building art, clear of its corner pillar
