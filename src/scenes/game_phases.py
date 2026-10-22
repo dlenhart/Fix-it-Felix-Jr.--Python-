@@ -66,7 +66,8 @@ class LevelStartPhase(GamePhase):
             # The door takes the climb's first heavy hit [ASSUMED] (spec section 5).
             game.ralph.start_climb(
                 game.building, STREET_Y,
-                first_heavy_cell=game.building.cell(DOOR_LOCAL_ROW, DOOR_COLUMN))
+                first_heavy_cell=game.building.cell(DOOR_LOCAL_ROW, DOOR_COLUMN),
+                sound=game.sound)
             self.has_climb_started = True
 
         if not self.is_ready_countdown:
@@ -80,7 +81,7 @@ class LevelStartPhase(GamePhase):
         return _enter_play(game)
 
     def _tick_climb(self, game: GameScene) -> None:
-        events = game.ralph.tick(game.building, game.level)
+        events = game.ralph.tick(game.building, game.level, game.sound)
         if not events.is_climb_finished:
             return
         game.ralph.idle()
@@ -117,7 +118,7 @@ class PlayPhase(GamePhase):
         if game.nicelanders.tick(game.building, game.felix, game.sound):
             game.ralph.start_rage()
 
-        events = game.ralph.tick(game.building, game.level)
+        events = game.ralph.tick(game.building, game.level, game.sound)
         for brick_x, brick_y in events.brick_spawns:
             game.bricks.spawn(brick_x, brick_y)
         if events.is_drop_hazard_requested:
@@ -169,7 +170,7 @@ class SectionClearPhase(GamePhase):
 
         if self.is_posing:
             # Ticked for the pose animation; Ralph throws nothing while posing.
-            game.ralph.tick(game.building, game.level)
+            game.ralph.tick(game.building, game.level, game.sound)
             return self._tick_pose(game)
         if self.is_climbing:
             self._tick_climb(game)
@@ -178,7 +179,7 @@ class SectionClearPhase(GamePhase):
         return self._tick_scroll(game)
 
     def _tick_climb(self, game: GameScene) -> None:
-        events = game.ralph.tick(game.building, game.level)
+        events = game.ralph.tick(game.building, game.level, game.sound)
         if not events.is_climb_finished:
             return
         game.ralph.idle()
@@ -203,7 +204,7 @@ class SectionClearPhase(GamePhase):
         if game.building.is_last_section:
             return LevelEndPhase()
         game.building.advance_section()
-        game.ralph.start_climb(game.building, game.ralph.y)
+        game.ralph.start_climb(game.building, game.ralph.y, sound=game.sound)
         self.is_climbing = True
         return None
 

@@ -38,6 +38,8 @@ DOOR_FIRST_PIECE = CELL_PIECE[CellKind.DOOR]
 DOOR_MAX_DRAWN_DAMAGE = 3  # [ASSUMED] door art has 4 pieces: intact + 3 damage steps
 PANE_TOP_OFFSET_Y = 0xC  # [EXE] FUN_00404ea0 top pane, from the cell piece top
 PANE_BOTTOM_OFFSET_Y = 0x19  # [EXE] FUN_00404ea0 bottom pane
+# TODO: FUN_00404ea0 puts the pane nodes at X*8+6 (types 0/3) and X*8+10 (type 4,
+# whose piece is drawn at X*8+4), with anim 66's origin (0, 0): cell.x + 6, not + 4.
 PANE_OFFSET_X = 4  # [ASSUMED] centers the pane art in the 24px cell piece
 PANE_WINDOW_KINDS = (CellKind.PLAIN, CellKind.PEDIMENT_A, CellKind.PEDIMENT_B)
 GLASS_OFFSET_X = 6  # [EXE] FUN_00404ea0 example rect
@@ -54,6 +56,37 @@ SILL_RISE_ABOVE_PIECE_BOTTOM: dict[CellKind, int] = {
     CellKind.PEDIMENT_B: 5,
     CellKind.DOOR: 0,
     CellKind.ARCHED: 0,
+}
+
+# [EXE] FUN_00404ea0: the cell's horizontal bounds (cell+0x6c, cell+0x70), as
+# offsets from the drawn piece's left edge. Pane types 0/3 store X*8 .. X*8+0x17;
+# type 4 stores X*8+4 .. X*8+0x1b but its piece is drawn 4px right
+# (FUN_0040f0a0: X*8+4), so all pane kinds come out at 0..23. The door and the
+# arched window store X*8+4 .. X*8+0x2b.
+SILL_SPAN_X: dict[CellKind, tuple[int, int]] = {
+    CellKind.PLAIN: (0, 0x17),
+    CellKind.PEDIMENT_A: (0, 0x17),
+    CellKind.PEDIMENT_B: (0, 0x17),
+    CellKind.DOOR: (4, 0x2B),
+    CellKind.ARCHED: (4, 0x2B),
+}
+
+# [EXE] FUN_00404ea0: the exe's per-cell sill y (cell+0x74), the y the exe stands
+# Felix on, as rows below the drawn piece's top. Pane types store EBX*8 + 0x24
+# with the piece drawn at EBX*8 (FUN_0040ef90): row 36, just above the visible
+# ledge (rows 37-42). The door (0x138) and arched window (0xfd) store absolute
+# world y; converted here with our layout (street at 320, pieces bottom-aligned
+# on the ground and second floors), which puts the door's at row 56, just above
+# its steps (rows 57-63), like the pane sills.
+_DOOR_PIECE_TOP_Y = STREET_Y - BUILDING_PIECES[CELL_PIECE[CellKind.DOOR]][3]
+_ARCHED_PIECE_TOP_Y = (STREET_Y - FLOOR_HEIGHT[FloorType.GROUND]
+                       - BUILDING_PIECES[CELL_PIECE[CellKind.ARCHED]][3])
+SILL_TOP_BELOW_PIECE_TOP: dict[CellKind, int] = {
+    CellKind.PLAIN: 0x24,
+    CellKind.PEDIMENT_A: 0x24,
+    CellKind.PEDIMENT_B: 0x24,
+    CellKind.DOOR: 0x138 - _DOOR_PIECE_TOP_Y,
+    CellKind.ARCHED: 0xFD - _ARCHED_PIECE_TOP_Y,
 }
 
 
@@ -176,6 +209,24 @@ class Building:
         """
         return self._floor_for_cell(cell).bottom_y - SILL_RISE_ABOVE_PIECE_BOTTOM[cell.kind]
 
+    def sill_top_y(self, cell: WindowCell) -> int:
+        """World y of the exe's own per-cell sill (cell+0x74): the row just above the ledge.
+
+        The exe places hazards relative to this y. It is not sill_y: on pane
+        windows the exe's sill row is 36 of the piece, sill_y's last row is 42.
+        """
+        return self._piece_top_y(cell) + SILL_TOP_BELOW_PIECE_TOP[cell.kind]
+
+    @staticmethod
+    def sill_span_x(cell: WindowCell) -> tuple[int, int]:
+        """World x bounds (left, right, both inclusive) of the exe's cell (cell+0x6c, +0x70)."""
+        left_offset, right_offset = SILL_SPAN_X[cell.kind]
+        return cell.x + left_offset, cell.x + right_offset
+
+    def _piece_top_y(self, cell: WindowCell) -> int:
+        piece_height = BUILDING_PIECES[CELL_PIECE[cell.kind]][3]
+        return self._floor_for_cell(cell).bottom_y - piece_height
+
     def glass_rect(self, cell: WindowCell) -> pygame.Rect:
         """World-space rect of the cell's breakable glass.
 
@@ -269,8 +320,17 @@ class Building:
             for cell in floor.cells
         )
 
-    def damage(self, cell: WindowCell, is_heavy: bool) -> None:
+    def damage(self, cell: WindowCell, is_heavy: bool, sound=None) -> None:
+        """Damage a cell; breaking an intact window plays "window_break".
+
+        Every damage source goes through FUN_00409840, which plays sound 5 when
+        the cell was intact. All its callers (intro wreck, bricks, Ralph's climb)
+        ask for the sound.
+        """
+        was_intact = not cell.is_broken
         cell.damage(is_heavy, self._rng)
+        if sound and was_intact and cell.is_broken:
+            sound.play_sfx("window_break")
 
     def fix(self, cell: WindowCell) -> int:
         """Fix a cell and return the score: 0 if intact, 500 if last broken, else 100."""

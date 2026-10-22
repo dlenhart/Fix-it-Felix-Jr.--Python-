@@ -168,3 +168,63 @@ def test_walk_after_climb_targets_left_first():
     for _ in range(10):
         ralph.tick(building, 5)
     assert ralph._target_x == 72
+
+
+class RecordingSound:
+    def __init__(self):
+        self.played = []
+
+    def play_sfx(self, name):
+        self.played.append(name)
+
+
+class AlwaysDamageRandom(random.Random):
+    """Every climb damage roll succeeds (FUN_0040dbb0's 50% roll)."""
+
+    def random(self):
+        return 0.0
+
+
+def climb_with_sound(building, sound, first_heavy_cell=None):
+    ralph = Ralph(AlwaysDamageRandom(0))
+    old_y = building.ledge_y()
+    building.advance_section()
+    ralph.start_climb(building, old_y, first_heavy_cell=first_heavy_cell, sound=sound)
+    for _ in range(2000):
+        if ralph.tick(building, 5, sound).is_climb_finished:
+            return
+    raise AssertionError("climb never finished")
+
+
+def section_damageable_cells(building):
+    return [cell for floor in building.section_floors() for cell in floor.cells
+            if cell.is_damageable]
+
+
+def test_climb_damage_plays_window_break_once_per_intact_window():
+    building = Building(5, random.Random(0))
+    sound = RecordingSound()
+    climb_with_sound(building, sound)
+    broken_count = building.broken_count
+    assert broken_count > 0
+    assert sound.played.count("window_break") == broken_count
+
+
+def test_climb_damage_on_broken_windows_is_silent():
+    building = Building(5, random.Random(0))
+    building.advance_section()
+    for cell in section_damageable_cells(building):
+        building.damage(cell, is_heavy=True)
+    building.section_index = 0
+    sound = RecordingSound()
+    climb_with_sound(building, sound)
+    assert "window_break" not in sound.played
+
+
+def test_level_start_heavy_hit_plays_window_break():
+    building = Building(5, random.Random(0))
+    sound = RecordingSound()
+    door = building.cell(0, 2)
+    Ralph(random.Random(0)).start_climb(building, 320, first_heavy_cell=door, sound=sound)
+    assert door.is_broken
+    assert sound.played == ["window_break"]

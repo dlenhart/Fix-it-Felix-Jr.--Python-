@@ -1,8 +1,18 @@
 # Exe-numbered ids into exe_tables.SPRITE_FRAMES / BUILDING_PIECES.
 PANE_FRAME_INTACT = 163
 BRICK_FRAMES = (5, 4)
-SILL_OBSTACLE_FRAME = 214
 LIFE_ICON_PIECE = 17
+
+# Hazards, read from the exe's animation table at 0x419800. A record's origin is
+# the point the sprite node's (x, y) names: FUN_0040ee00 draws the frame's
+# top-left at (x - origin_x, y - origin_y).
+# [EXE] anim 91 (FUN_00406e00), record (214, -1, 0, 11, 5): the 32x8 slab, art 25x6.
+SILL_OBSTACLE_FRAME = 214
+SILL_OBSTACLE_ORIGIN = (11, 5)
+# [EXE] anim 98, record (215, -1, 0, 11, 14): the brick chunk Ralph drops. FUN_0040a210
+# creates the three drop-hazard nodes (0x420ca0, stride 0x24) with anim 0x419c98.
+DROP_HAZARD_FRAME = 215
+DROP_HAZARD_ORIGIN = (11, 14)
 
 # Felix's hit animations, read from the exe's animation table at 0x419800
 # (12-byte entries; each points at 10-byte frame records of

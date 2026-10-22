@@ -5,9 +5,15 @@ from constants import ASSET_DIR
 SOUND_MAP = {
     "hammer_hit": "sound3",
     "hammer_hit_alt": "sound6",
-    "jump": "sound5",
-    "window_break": "sound20",
-    "hammer_extended": "sound17",   # Ghidra-confirmed: index 0x11 = hammer extended anim
+    # Ghidra-confirmed: FUN_0040c3d0 case 5 (start of the jump up, FUN_0040bea0) plays index 0x0F.
+    "jump": "sound15",
+    # Ghidra-confirmed: FUN_0040c3d0 case 6 (start of the drop down, FUN_0040c0d0) plays index 0x11.
+    "drop_down": "sound17",
+    # Ghidra-confirmed: FUN_00409840 plays index 5 when it damages an intact window.
+    "window_break": "sound5",
+    # TODO: index 0x11 is the drop-down start (FUN_0040c3d0 case 6); no exe sound is
+    # known for the hammer reaching full extension (case 8 plays none).
+    "hammer_extended": "sound17",
     "pie_pickup": "sound16",
     "ralph_grunt": "sound1",
     "window_fixed": "sound4",
@@ -24,7 +30,9 @@ SOUND_MAP = {
     "menu_select": "sound26",
     "menu_confirm": "sound27",
     "bonus_score_alt": "sound28",
-    "felix_move": "sound15",        # Ghidra-confirmed: index 0x0F = state transition/movement
+    # TODO: index 0x0F is the jump up (FUN_0040c3d0 case 5); the walk start (case 3)
+    # plays nothing in the exe.
+    "felix_move": "sound15",
     "death": "sound19",             # Ghidra-confirmed: index 0x13 = death/game over
 }
 

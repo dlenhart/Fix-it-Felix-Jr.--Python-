@@ -256,13 +256,16 @@ class Felix:
         target_row = self.local_row + row_step
         if not 0 <= target_row < FLOORS_PER_SECTION:
             return
+        # TODO: in the exe a cell's obstacle blocks the drop DOWN from it (FUN_0040b5e0
+        # needs cell+0x2c == 0 for state 6) and the jump UP bumps on an obstacle above
+        # (FUN_0040bea0 -> FUN_004097d0, sound 6, falls back); this blocks UP instead.
         if row_step > 0 and self._current_cell(building).has_sill_obstacle:
             return
         self._target_row = target_row
         self.state = FelixState.JUMPING
         self._state_ticks = 0
         if sound:
-            sound.play_sfx("jump")
+            sound.play_sfx("jump" if row_step > 0 else "drop_down")
 
     def _tick_walk_horizontal(self, input_handler, building):
         self._retarget_on_reverse(input_handler)

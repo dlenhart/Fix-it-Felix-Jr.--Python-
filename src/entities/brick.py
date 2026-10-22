@@ -154,9 +154,7 @@ class BrickField:
                     continue
                 if self._rng.randrange(BRICK_WINDOW_BREAK_ODDS) != WINDOW_BREAK_ROLL:
                     continue
-                building.damage(cell, is_heavy=False)
+                building.damage(cell, is_heavy=False, sound=sound)
                 self._window_break_budget -= 1
-                if sound:
-                    sound.play_sfx("window_break")
                 return True
         return False

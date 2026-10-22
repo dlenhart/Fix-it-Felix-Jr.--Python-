@@ -175,3 +175,22 @@ def test_bouncing_brick_is_no_threat():
     field.spawn(200, GROUND_Y - 1)
     field.tick(building, felix, level=1)
     assert not field.is_falling_toward(standing_hitbox(200, GROUND_Y + 8))
+
+
+class RecordingSound:
+    def __init__(self):
+        self.played = []
+
+    def play_sfx(self, name):
+        self.played.append(name)
+
+
+def test_brick_crack_plays_window_break():
+    building, felix = make_world(level=2)
+    field = BrickField(AlwaysNinetyNineRandom())
+    cell = upper_window_cells(building)[0]
+    sound = RecordingSound()
+    spawn_in_glass(field, building, cell)
+    field.tick(building, felix, level=2, sound=sound)
+    assert cell.is_broken
+    assert sound.played == ["window_break"]

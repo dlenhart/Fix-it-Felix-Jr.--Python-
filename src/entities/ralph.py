@@ -71,15 +71,15 @@ class Ralph:
         """Pose until start_climb; the game scene times the pose."""
         self.state = RalphState.SECTION_POSE
 
-    def start_climb(self, building, from_y: float, first_heavy_cell=None) -> None:
+    def start_climb(self, building, from_y: float, first_heavy_cell=None, sound=None) -> None:
         """Climb from from_y to the building's (already advanced) ledge."""
         self.state = RalphState.CLIMB
         self.y = from_y
         self._climb_ticks = 0
         if first_heavy_cell is not None:
-            building.damage(first_heavy_cell, is_heavy=True)
+            building.damage(first_heavy_cell, is_heavy=True, sound=sound)
 
-    def tick(self, building, level: int) -> RalphEvents:
+    def tick(self, building, level: int, sound=None) -> RalphEvents:
         events = RalphEvents()
         self._anim_ticks += 1
         self._tick_drop_timer(level, events)
@@ -90,7 +90,7 @@ class Ralph:
         elif self.state == RalphState.RAGE:
             self._tick_rage(events)
         elif self.state == RalphState.CLIMB:
-            self._tick_climb(building, events)
+            self._tick_climb(building, events, sound)
         return events
 
     def _tick_drop_timer(self, level: int, events: RalphEvents) -> None:
@@ -157,14 +157,14 @@ class Ralph:
         if ticks_since_windup % RALPH_RAGE_BRICK_INTERVAL_TICKS == 0:
             events.brick_spawns.append(self._spawn_brick())
 
-    def _tick_climb(self, building, events: RalphEvents) -> None:
+    def _tick_climb(self, building, events: RalphEvents, sound) -> None:
         self._climb_ticks += 1
         if self.x != RALPH_PATROL_CENTER_X:
             self._slide_toward_center()
         else:
             self.y = max(self.y - RALPH_CLIMB_SPEED, building.ledge_y())
         if self._climb_ticks % RALPH_CLIMB_DAMAGE_INTERVAL_TICKS == 0:
-            self._maybe_damage_window(building)
+            self._maybe_damage_window(building, sound)
         is_at_ledge = self.x == RALPH_PATROL_CENTER_X and self.y <= building.ledge_y()
         if not is_at_ledge:
             return
@@ -179,7 +179,7 @@ class Ralph:
             return
         self.x += RALPH_CLIMB_SPEED if remaining > 0 else -RALPH_CLIMB_SPEED
 
-    def _maybe_damage_window(self, building) -> None:
+    def _maybe_damage_window(self, building, sound) -> None:
         if self._rng.random() >= RALPH_CLIMB_DAMAGE_CHANCE:
             return
         floor = building.floor_at_y(self.y)
@@ -188,7 +188,7 @@ class Ralph:
         damageable_cells = [cell for cell in floor.cells if cell.is_damageable]
         if not damageable_cells:
             return
-        building.damage(self._rng.choice(damageable_cells), is_heavy=False)
+        building.damage(self._rng.choice(damageable_cells), is_heavy=False, sound=sound)
 
     def _sprite_name(self) -> str:
         if self.state in (RalphState.POUND, RalphState.RAGE):

@@ -6,18 +6,21 @@ import random
 import pygame
 
 from camera import Camera
-from entities.building import Building, Floor, WindowCell
+from constants import RALPH_PATROL_CENTER_X
+from entities.building import CENTER_COLUMN, Building, Floor, WindowCell
 from entities.felix import Felix
 from entities.ralph import Ralph
 from exe_tables import SPRITE_FRAMES
 from level_config import CellKind, LevelConfig
 from sprite_data import (
-    BIRD_FRAME_HOLD_TICKS, BIRD_FRAMES_LEFT, BIRD_FRAMES_RIGHT, SILL_OBSTACLE_FRAME,
+    BIRD_FRAME_HOLD_TICKS, BIRD_FRAMES_LEFT, BIRD_FRAMES_RIGHT, DROP_HAZARD_FRAME,
+    DROP_HAZARD_ORIGIN, SILL_OBSTACLE_FRAME, SILL_OBSTACLE_ORIGIN,
 )
 from sprite_sheet import SpriteSheet
 
 HAZARD_FLOOR_COUNT = 3  # [EXE] FUN_004067d0 / FUN_00406e00 use the section's top 3 floors
 SILL_OBSTACLES_MAX_PER_FLOOR = 2  # [EXE] FUN_00406e00
+SILL_OBSTACLE_BELOW_SILL_TOP = 9  # [EXE] FUN_00406e00 node y = cell+0x74 + 9
 
 BIRD_SPEED = 0.5  # [EXE] FUN_00406bb0 px/tick
 BIRD_WRAP_LEFT_X = -32  # [EXE] FUN_00406bb0 also the start x of a bird entering from the left
@@ -28,17 +31,40 @@ BIRD_FRAME_DISPLAY_TICKS = BIRD_FRAME_HOLD_TICKS + 1
 BIRD_CENTER_ABOVE_FLOOR_BOTTOM = 25  # [ASSUMED] puts the bird at the height of the window glass
 
 DROP_HAZARD_FALL_SPEED = 1.9  # [EXE] FUN_004073f0 px/tick
+# TODO: FUN_00409360 caps the hazards *spawned* this section (0x421834, reset per
+# section) at the level's limit, plus 3 slots; this caps the live count instead.
 DROP_HAZARD_MAX_LIVE = 3  # [EXE] FUN_00409360
 DROP_HAZARD_BLINKS = 4  # [EXE] FUN_004073f0 blinks after Felix touches it
+# TODO: FUN_004073f0 toggles visibility every 15 ticks (timer 0xf, count 4: four
+# visible phases, three hidden, about 105 ticks), not every 4.
 DROP_HAZARD_BLINK_HALF_PERIOD_TICKS = 4  # [ASSUMED] matches the brick and Felix blink rhythm
 DROP_HAZARD_SPAWN_DROP = 8  # [EXE] FUN_00409360 spawns at Ralph's y + 8
+# [EXE] FUN_004073f0 touch test (0x416b20, 0x416c18): within 4 px across and 5 px
+# up or down of the hazard's node, against Felix's own box.
+DROP_HAZARD_HALF_WIDTH = 4
+DROP_HAZARD_HALF_HEIGHT = 5
+DROP_HAZARD_PLACEMENT_ATTEMPTS = 4  # [EXE] FUN_00409360 rerolls a taken floor up to 4 times
+# [EXE] FUN_00409360: gaps 1 and 2 flank the center cell; when the section's bottom
+# floor has the door there, those gaps only take floors 2 and 3.
+DROP_HAZARD_DOOR_SIDE_GAPS = (1, 2)
+DROP_HAZARD_DOOR_SIDE_FIRST_FLOOR = 2
 
 OBSTACLE_WIDTH, OBSTACLE_HEIGHT = SPRITE_FRAMES[SILL_OBSTACLE_FRAME][2:]  # [EXE] frame 214 is 32x8
 
 
-def _obstacle_rect(center_x: float, bottom_y: float) -> pygame.Rect:
-    return pygame.Rect(round(center_x) - OBSTACLE_WIDTH // 2, round(bottom_y) - OBSTACLE_HEIGHT,
-                       OBSTACLE_WIDTH, OBSTACLE_HEIGHT)
+def sill_obstacle_rect(building: Building, cell: WindowCell) -> pygame.Rect:
+    """World rect of a cell's sill obstacle frame, placed as FUN_00406e00 places its node.
+
+    The node sits at the middle of the cell's bounds, 9 px below the exe's sill
+    row, and anim 91's origin (11, 5) is the slab art's bottom center. On a pane
+    window the art covers rows 40-45: the ledge's front face and the 3 rows
+    under it.
+    """
+    left, right = building.sill_span_x(cell)
+    node_x = (right - left) // 2 + left
+    node_y = building.sill_top_y(cell) + SILL_OBSTACLE_BELOW_SILL_TOP
+    origin_x, origin_y = SILL_OBSTACLE_ORIGIN
+    return pygame.Rect(node_x - origin_x, node_y - origin_y, OBSTACLE_WIDTH, OBSTACLE_HEIGHT)
 
 
 def _hazard_floors(building: Building) -> list[Floor]:
@@ -115,12 +141,17 @@ class Bird:
 
 
 class DropHazard:
-    """A hazard Ralph drops onto a sill: falls, waits, then blinks away once it hit Felix."""
+    """A brick chunk Ralph drops between two windows: falls, waits, blinks away once it hit Felix.
 
-    def __init__(self, x: float, start_y: float, target_cell: WindowCell, landing_y: float):
+    x and y are the exe's node point (anim 98's origin), in world coordinates. It
+    lands in the gap to the right of cell gap_index, at that cell's exe sill row.
+    """
+
+    def __init__(self, x: float, start_y: float, floor: Floor, gap_index: int, landing_y: float):
         self.x = float(x)
         self.y = float(start_y)
-        self.target_cell = target_cell
+        self.floor = floor
+        self.gap_index = gap_index
         self.landing_y = float(landing_y)
         self.is_blinking = False
         self.is_finished = False
@@ -132,7 +163,10 @@ class DropHazard:
         return self.y >= self.landing_y
 
     def rect(self) -> pygame.Rect:
-        return _obstacle_rect(self.x, self.y)
+        """The touch box of FUN_004073f0 around the node point."""
+        return pygame.Rect(round(self.x) - DROP_HAZARD_HALF_WIDTH,
+                           round(self.y) - DROP_HAZARD_HALF_HEIGHT,
+                           2 * DROP_HAZARD_HALF_WIDTH, 2 * DROP_HAZARD_HALF_HEIGHT)
 
     def start_blinking(self) -> None:
         self.is_blinking = True
@@ -152,10 +186,20 @@ class DropHazard:
         if self.is_blinking and (self._blink_ticks // DROP_HAZARD_BLINK_HALF_PERIOD_TICKS) % 2 == 1:
             return
         y = self._previous_y + (self.y - self._previous_y) * alpha
-        # TODO: drop-hazard sprite unidentified (spec section 8); borrows the sill obstacle frame.
-        frame = sprites.get_frame(SILL_OBSTACLE_FRAME, palette)
-        screen.blit(frame, (round(self.x) - OBSTACLE_WIDTH // 2,
-                            camera.to_screen_y(y, alpha) - OBSTACLE_HEIGHT))
+        frame = sprites.get_frame(DROP_HAZARD_FRAME, palette)
+        origin_x, origin_y = DROP_HAZARD_ORIGIN
+        screen.blit(frame, (round(self.x) - origin_x, camera.to_screen_y(y, alpha) - origin_y))
+
+
+def _make_drop_hazard(building: Building, floor: Floor, gap_index: int,
+                      ralph_y: float) -> DropHazard:
+    """FUN_00409360: x is the middle of the gap between the two cells' bounds."""
+    left_cell, right_cell = floor.cells[gap_index], floor.cells[gap_index + 1]
+    _, left_cell_right = building.sill_span_x(left_cell)
+    right_cell_left, _ = building.sill_span_x(right_cell)
+    gap_middle_x = (right_cell_left - left_cell_right) // 2 + left_cell_right
+    return DropHazard(gap_middle_x, ralph_y + DROP_HAZARD_SPAWN_DROP, floor, gap_index,
+                      landing_y=building.sill_top_y(left_cell))
 
 
 class HazardField:
@@ -194,14 +238,43 @@ class HazardField:
             bird.reset()
 
     def request_drop(self, ralph: Ralph, building: Building, config: LevelConfig) -> None:
-        """Drop a hazard from Ralph onto a random floor, if the level's limit allows."""
+        """Drop a hazard from Ralph into a gap between windows, if the level's limit allows.
+
+        FUN_00409360: the gap follows Ralph's side, the floor is random, and a floor
+        whose same gap already holds a hazard is rerolled; after 4 taken floors
+        nothing drops.
+        """
         if len(self._drop_hazards) >= min(config.drop_hazards, DROP_HAZARD_MAX_LIVE):
             return
-        floor = self._rng.choice(building.section_floors())
-        target_cell = min(floor.cells, key=lambda cell: abs(cell.center_x - ralph.x))
-        self._drop_hazards.append(DropHazard(
-            target_cell.center_x, ralph.y + DROP_HAZARD_SPAWN_DROP, target_cell,
-            landing_y=building.sill_y(target_cell)))
+        gap_index = self._choose_gap(ralph.x)
+        floors = self._drop_floors(building, gap_index)
+        for _ in range(DROP_HAZARD_PLACEMENT_ATTEMPTS):
+            floor = self._rng.choice(floors)
+            is_gap_taken = any(hazard.floor is floor and hazard.gap_index == gap_index
+                               for hazard in self._drop_hazards)
+            if is_gap_taken:
+                continue
+            self._drop_hazards.append(_make_drop_hazard(building, floor, gap_index, ralph.y))
+            return
+
+    def _choose_gap(self, ralph_x: float) -> int:
+        """FUN_0040d970: the two gaps on Ralph's side, or the middle two when he is centered.
+
+        The exe tests flag 0x421748, set when Ralph stops at x 0x78 (the center).
+        """
+        if ralph_x == RALPH_PATROL_CENTER_X:
+            return 1 + self._rng.randrange(2)
+        if ralph_x < RALPH_PATROL_CENTER_X:
+            return self._rng.randrange(2)
+        return 2 + self._rng.randrange(2)
+
+    @staticmethod
+    def _drop_floors(building: Building, gap_index: int) -> list[Floor]:
+        floors = building.section_floors()
+        has_door = floors[0].cells[CENTER_COLUMN].kind == CellKind.DOOR
+        if gap_index in DROP_HAZARD_DOOR_SIDE_GAPS and has_door:
+            return floors[DROP_HAZARD_DOOR_SIDE_FIRST_FLOOR:]
+        return floors
 
     def is_threatening(self, hitbox: pygame.Rect) -> bool:
         """True if a drop-hazard is falling toward the hitbox or already sits on it.
@@ -236,7 +309,10 @@ class HazardField:
             if bird.rect().colliderect(felix_hitbox) and felix.hit(sound):
                 return True
         for hazard in self._drop_hazards:
-            if hazard.is_blinking or not hazard.rect().colliderect(felix_hitbox):
+            # [USER] harmless while falling; the exe's FUN_004073f0 tests the touch every tick.
+            if hazard.is_blinking or not hazard.is_landed:
+                continue
+            if not hazard.rect().colliderect(felix_hitbox):
                 continue
             if felix.hit(sound):
                 hazard.start_blinking()
@@ -259,7 +335,5 @@ class HazardField:
             for cell in floor.cells:
                 if not cell.has_sill_obstacle:
                     continue
-                # [ASSUMED] the 32x8 frame sits on the sill; the exe's "sill + 9" offset is
-                # relative to its own sill y, which is not our measured one.
-                rect = _obstacle_rect(cell.center_x, building.sill_y(cell))
+                rect = sill_obstacle_rect(building, cell)
                 screen.blit(frame, (rect.x, camera.to_screen_y(rect.y)))

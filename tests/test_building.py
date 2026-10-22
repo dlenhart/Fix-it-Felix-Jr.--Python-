@@ -69,3 +69,37 @@ def test_door_damage_and_floor_lookup():
     assert door.door_damage == 5 and door.is_broken
     assert b.floor_at_y(300) is b.floors[0]
     assert b.floor_at_y(320) is None
+
+
+class RecordingSound:
+    def __init__(self):
+        self.played = []
+
+    def play_sfx(self, name):
+        self.played.append(name)
+
+
+def test_damage_plays_window_break_only_when_an_intact_window_breaks():
+    b = Building(1, random.Random(0))
+    sound = RecordingSound()
+    cell = b.cell(1, 0)
+    b.damage(cell, is_heavy=False, sound=sound)
+    assert sound.played == ["window_break"]
+    b.damage(cell, is_heavy=True, sound=sound)
+    assert sound.played == ["window_break"]
+    b.damage(b.cell(1, 2), is_heavy=True, sound=sound)  # arched: never damaged
+    assert sound.played == ["window_break"]
+
+
+def test_exe_sill_row_and_bounds():
+    b = Building(5, random.Random(0))
+    ground, second, brick = b.section_floors()[:3]
+    pane = ground.cells[0]
+    # FUN_00404ea0: pane sill at piece top + 0x24, bounds X*8 .. X*8+0x17.
+    assert b.sill_top_y(pane) == ground.bottom_y - 48 + 36
+    assert b.sill_span_x(pane) == (40, 63)
+    assert b.sill_top_y(ground.cells[2]) == 0x138  # the door's absolute exe sill
+    assert b.sill_top_y(second.cells[2]) == 0xFD  # the arched window's
+    assert b.sill_span_x(ground.cells[2]) == (100, 139)
+    # Type 4 cell: exe stores X*8+4 .. X*8+0x1b with X*8 = 104, and draws the piece at 108.
+    assert b.sill_span_x(brick.cells[2]) == (108, 131)

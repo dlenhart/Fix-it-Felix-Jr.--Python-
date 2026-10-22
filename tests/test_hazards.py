@@ -16,7 +16,7 @@ from entities.felix import Felix  # noqa: E402
 from entities.hazards import (  # noqa: E402
     BIRD_SPEED, BIRD_WRAP_LEFT_X, BIRD_WRAP_RIGHT_X, DROP_HAZARD_BLINKS,
     DROP_HAZARD_BLINK_HALF_PERIOD_TICKS, DROP_HAZARD_MAX_LIVE, Bird, HazardField,
-    clear_sill_obstacles, place_sill_obstacles,
+    clear_sill_obstacles, place_sill_obstacles, sill_obstacle_rect,
 )
 from level_config import CellKind, get_level_config  # noqa: E402
 from scenes.game_phases import PlayPhase, SectionClearPhase  # noqa: E402
@@ -113,40 +113,113 @@ def test_bird_hits_felix_unless_invulnerable():
     assert felix.is_in_hit_sequence
 
 
-def force_drop_on_felix_floor(level=5):
-    """Retry seeds until the random floor is Felix's, so the hazard lands on his cell."""
-    for seed in range(200):
-        building, felix, field = make_world(level, seed)
-        felix_cell = building.cell(felix.local_row, felix.column)
-        ralph = StubRalph(x=felix_cell.center_x, y=building.sill_y(felix_cell) - 20)
-        field.request_drop(ralph, building, get_level_config(level))
-        if field.drop_hazards[0].target_cell is felix_cell:
-            return building, felix, field
-    raise AssertionError("no seed targeted Felix's cell")
+class StubFelix:
+    """A Felix standing in a given box; every touch lands a hit unless refused."""
+
+    def __init__(self, hitbox, is_hit_refused=False):
+        self.box = hitbox
+        self.is_hit_refused = is_hit_refused
+        self.hit_count = 0
+
+    def hitbox(self):
+        return self.box
+
+    def hit(self, sound=None):
+        if self.is_hit_refused:
+            return False
+        self.hit_count += 1
+        return True
 
 
-def test_drop_hazard_lands_on_sill_and_hits_felix_once():
-    building, felix, field = force_drop_on_felix_floor()
-    hazard = field.drop_hazards[0]
-    sill_y = building.sill_y(hazard.target_cell)
-    bystander = bystander_felix(building)
-    ticks = 0
-    while not hazard.is_landed:
-        assert field.tick(building, bystander) is False
-        ticks += 1
-        assert ticks < 200
-    assert hazard.y == sill_y
-    for _ in range(30):  # it stays put on the sill
-        field.tick(building, bystander)
-    assert hazard.y == sill_y and not hazard.is_blinking
+def felix_box_on(hazard):
+    """A Felix-sized box (12x28, feet at the bottom) centered on the hazard's node."""
+    return pygame.Rect(round(hazard.x) - 6, round(hazard.y) - 14, 12, 28)
 
+
+def drop_one(level=5, ralph_x=72.0, seed=1):
+    building = Building(level, random.Random(seed))
+    field = HazardField(random.Random(seed))
+    field.request_drop(StubRalph(x=ralph_x, y=40.0), building, get_level_config(level))
+    return building, field, field.drop_hazards[0]
+
+
+def test_drop_hazard_gap_follows_ralphs_side():
+    for seed in range(100):
+        assert drop_one(ralph_x=72.0, seed=seed)[2].gap_index in (0, 1)
+        assert drop_one(ralph_x=169.0, seed=seed)[2].gap_index in (2, 3)
+        assert drop_one(ralph_x=120.0, seed=seed)[2].gap_index in (1, 2)
+
+
+def test_drop_hazard_lands_in_the_middle_of_its_gap_at_the_exe_sill_row():
+    for seed in range(50):
+        building, field, hazard = drop_one(ralph_x=169.0, seed=seed)
+        left_cell = hazard.floor.cells[hazard.gap_index]
+        right_cell = hazard.floor.cells[hazard.gap_index + 1]
+        assert left_cell.x + 23 < hazard.x < right_cell.x
+        assert hazard.landing_y == building.sill_top_y(left_cell)
+    gap_zero_hazards = [hazard for seed in range(20)
+                        for hazard in [drop_one(ralph_x=72.0, seed=seed)[2]]
+                        if hazard.gap_index == 0]
+    assert gap_zero_hazards
+    assert all(hazard.x == 67 for hazard in gap_zero_hazards)  # (72 - 63) // 2 + 63
+
+
+def test_door_side_gaps_skip_the_bottom_two_floors_of_the_first_section():
+    for seed in range(100):
+        building, _, hazard = drop_one(ralph_x=120.0, seed=seed)
+        assert hazard.floor in building.section_floors()[2:]
+
+
+def test_drop_hazard_rerolls_a_floor_whose_gap_is_taken():
+    building = Building(10, random.Random(3))
+    field = HazardField(random.Random(3))
+    config = get_level_config(10)
+    for _ in range(3):
+        field.request_drop(StubRalph(x=72.0), building, config)
+    spots = [(id(hazard.floor), hazard.gap_index) for hazard in field.drop_hazards]
+    assert len(spots) == len(set(spots))
+
+
+def test_falling_drop_hazard_passing_through_felix_does_not_hit():
+    building, field, hazard = drop_one()
+    felix = StubFelix(felix_box_on(hazard))
+    for _ in range(200):
+        felix.box = felix_box_on(hazard)
+        was_hit = field.tick(building, felix)
+        if hazard.is_landed:
+            break
+        assert was_hit is False
+    assert hazard.is_landed
+    assert felix.hit_count == (1 if was_hit else 0)  # only the landing tick may hit
+
+
+def test_landed_drop_hazard_hits_felix_once_then_blinks_away():
+    building, field, hazard = drop_one()
+    away = StubFelix(pygame.Rect(0, 0, 1, 1))
+    for _ in range(200):
+        field.tick(building, away)
+    assert hazard.is_landed and hazard.y == hazard.landing_y and not hazard.is_blinking
+
+    felix = StubFelix(felix_box_on(hazard))
     assert field.tick(building, felix) is True
-    assert hazard.is_blinking
-    felix.place_at(felix.local_row, felix.column, building)  # as if respawned on top of it
+    assert hazard.is_blinking and felix.hit_count == 1
     blink_ticks = DROP_HAZARD_BLINKS * 2 * DROP_HAZARD_BLINK_HALF_PERIOD_TICKS
     for _ in range(blink_ticks):
         assert field.tick(building, felix) is False
+    assert felix.hit_count == 1
     assert field.drop_hazards == ()
+
+
+def test_landed_drop_hazard_reaches_a_felix_standing_on_that_floor():
+    building, field, hazard = drop_one()
+    for _ in range(200):
+        field.tick(building, StubFelix(pygame.Rect(0, 0, 1, 1)))
+    felix = Felix()
+    felix.place_at(building.section_floors().index(hazard.floor), hazard.gap_index, building)
+    standing_box = felix.hitbox()
+    walking_past = standing_box.move(round(hazard.x) - standing_box.centerx, 0)
+    assert hazard.rect().colliderect(walking_past)
+    assert not hazard.rect().colliderect(standing_box)  # a window spot stays safe
 
 
 def test_drop_hazards_capped_by_level_and_three():
@@ -168,11 +241,13 @@ def test_hazard_touch_during_hit_sequence_does_nothing():
     assert felix.hit()
     assert field.tick(building, felix) is False
 
-    building, felix, field = force_drop_on_felix_floor()
-    assert felix.hit()
+    building, field, hazard = drop_one()
+    for _ in range(200):
+        field.tick(building, StubFelix(pygame.Rect(0, 0, 1, 1)))
+    refusing_felix = StubFelix(felix_box_on(hazard), is_hit_refused=True)
     for _ in range(40):
-        assert field.tick(building, felix) is False
-    assert not field.drop_hazards[0].is_blinking
+        assert field.tick(building, refusing_felix) is False
+    assert not hazard.is_blinking
 
 
 def test_birds_return_to_start_x_at_respawn():
@@ -193,42 +268,16 @@ def test_birds_return_to_start_x_at_respawn():
         assert abs(bird.x - start_x) <= BIRD_SPEED  # reset, then moved on the respawn tick
 
 
-def bystander_felix(building):
-    """An invulnerable Felix on the top floor, so ticking a field never hits him."""
-    felix = Felix()
-    felix.place_at(3, 0, building)
-    felix.activate_invulnerability()
-    return felix
-
-
-def land_all_drops(building, field):
-    bystander = bystander_felix(building)
+def test_drop_hazard_threatens_its_gap_while_falling_and_after_landing():
+    building, field, hazard = drop_one()
+    landing_box = pygame.Rect(round(hazard.x) - 6, round(hazard.landing_y) - 14, 12, 28)
+    assert not hazard.is_landed
+    assert field.is_threatening(landing_box)
     for _ in range(200):
-        field.tick(building, bystander)
-
-
-def test_respawn_avoids_a_landed_drop_hazard():
-    building, felix, field = force_drop_on_felix_floor()
-    land_all_drops(building, field)
-    hazard = field.drop_hazards[0]
+        field.tick(building, StubFelix(pygame.Rect(0, 0, 1, 1)))
     assert hazard.is_landed
-    assert field.is_threatening(felix.hitbox())
-
-    hit_column = felix.column
-    assert felix.hit()
-    for _ in range(500):
-        felix.tick(MockInput(), building, is_spot_threatened=field.is_threatening)
-        if not felix.is_in_hit_sequence:
-            break
-    assert not felix.is_in_hit_sequence
-    assert felix.column != hit_column
-    assert not field.is_threatening(felix.hitbox())
-
-
-def test_respawn_avoids_a_drop_hazard_still_falling_toward_the_spot():
-    building, felix, field = force_drop_on_felix_floor()
-    assert not field.drop_hazards[0].is_landed
-    assert field.is_threatening(felix.hitbox())
+    assert field.is_threatening(landing_box)
+    assert not field.is_threatening(landing_box.move(-20, 0))
 
 
 def test_section_clear_removes_hazards_and_obstacle_flags_and_next_section_places_more():
@@ -283,3 +332,21 @@ def test_bird_hit_costs_exactly_one_life():
         game.bricks.clear()
     assert game.felix.lives == lives_before - 1
     assert not game.felix.is_in_hit_sequence
+
+
+def test_sill_obstacle_rect_follows_the_exe_placement():
+    building = Building(6, random.Random(0))
+    for floor in building.section_floors():
+        for cell in floor.cells:
+            if cell.kind == CellKind.ARCHED:
+                continue
+            rect = sill_obstacle_rect(building, cell)
+            left, right = building.sill_span_x(cell)
+            # FUN_00406e00 node: middle of the bounds, exe sill + 9; anim 91 origin (11, 5).
+            assert rect.topleft == ((right - left) // 2 + left - 11,
+                                    building.sill_top_y(cell) + 9 - 5)
+            assert rect.size == (32, 8)
+    plain = building.section_floors()[1].cells[0]
+    piece_top = building.section_floors()[1].bottom_y - 48
+    rect = sill_obstacle_rect(building, plain)
+    assert rect.topleft == (plain.x, piece_top + 40)  # slab art on piece rows 40-45

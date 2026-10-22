@@ -433,3 +433,23 @@ def test_invulnerable_ignores_hit_and_expires_after_480_ticks():
     tick_n(f, b, 1)
     assert not f.is_invulnerable
     assert f.hit() is True
+
+
+def test_vertical_jump_sounds_follow_the_exe():
+    b = Building(1, Random(0))
+    f = Felix()
+    f.place_at(1, 0, b)
+    sound = RecordingSound()
+    press(f, b, Action.UP, sound)
+    assert sound.played == ["jump"]
+    tick_n(f, b, 200)
+    assert f.state == FelixState.IDLE and f.local_row == 2
+    press(f, b, Action.DOWN, sound)
+    assert sound.played == ["jump", "drop_down"]
+
+
+def test_sound_map_uses_the_exe_indices():
+    from sound_manager import SOUND_MAP
+    assert SOUND_MAP["jump"] == "sound15"  # FUN_0040c3d0 case 5: index 0x0F
+    assert SOUND_MAP["drop_down"] == "sound17"  # FUN_0040c3d0 case 6: index 0x11
+    assert SOUND_MAP["window_break"] == "sound5"  # FUN_00409840: index 5
