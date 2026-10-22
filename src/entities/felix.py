@@ -7,7 +7,7 @@ from sprite_data import (
     FELIX_HIT_FRAMES_RIGHT, FELIX_HIT_FRAMES_LEFT, FELIX_HIT_FRAME_HOLD_TICKS,
     FELIX_FINAL_HIT_FRAMES, FELIX_FINAL_HIT_FRAME_HOLD_TICKS,
 )
-from entities.building import FIX_LAST_WINDOW_SCORE
+from entities.building import CENTER_COLUMN, FIX_LAST_WINDOW_SCORE
 from level_config import FLOORS_PER_SECTION, STREET_Y
 from constants import (
     INITIAL_LIVES, BONUS_LIFE_THRESHOLD, INVULNERABLE_TICKS,
@@ -38,6 +38,15 @@ def _frame_display_ticks(hold_ticks):
 
 
 HIT_ANIM_TICKS = len(FELIX_HIT_FRAMES_RIGHT) * _frame_display_ticks(FELIX_HIT_FRAME_HOLD_TICKS)
+
+
+def _hitbox_at(x, feet_y):
+    return pygame.Rect(
+        round(x - HITBOX_WIDTH / 2),
+        round(feet_y - HITBOX_HEIGHT),
+        HITBOX_WIDTH,
+        HITBOX_HEIGHT,
+    )
 
 
 class FelixState(enum.Enum):
@@ -98,10 +107,6 @@ class Felix:
         self._is_placed = False
 
     @property
-    def is_alive(self):
-        return self.lives > 0
-
-    @property
     def is_game_over(self):
         """True once the last life's hit sequence has played out."""
         return self.state == FelixState.GAME_OVER
@@ -136,8 +141,10 @@ class Felix:
     def hit(self, sound=None):
         """Start the hit sequence (FUN_0040ca00). Returns False if it did not land.
 
-        The life is lost at the respawn, as in the exe; on the last life Felix
-        never respawns and lives drop to 0 when the sequence ends.
+        The life is lost at the respawn, as in the exe. On the last life Felix
+        never respawns, so lives drop to 0 at the hit: the HUD shows no life
+        during the death sequence (the user's call; the exe's HUD timing is
+        not decoded).
         """
         if self.is_invulnerable:
             return False
@@ -150,6 +157,7 @@ class Felix:
         if self.lives > 1:
             self.state = FelixState.HIT_ANIM
             return True
+        self.lives = 0
         self.state = FelixState.FINAL_HIT_ANIM
         if sound:
             sound.play_sfx("death")
@@ -168,14 +176,14 @@ class Felix:
 
     def hitbox(self):
         """World-space collision rect, centered on the feet x and standing on the feet y."""
-        return pygame.Rect(
-            round(self._pos_x - HITBOX_WIDTH / 2),
-            round(self._pos_y - HITBOX_HEIGHT),
-            HITBOX_WIDTH,
-            HITBOX_HEIGHT,
-        )
+        return _hitbox_at(self._pos_x, self._pos_y)
 
-    def tick(self, input_handler, building, sound=None):
+    def tick(self, input_handler, building, sound=None, is_spot_threatened=None):
+        """Advance one tick.
+
+        is_spot_threatened(hitbox) -> bool, if given, steers the respawn away
+        from spots a brick is falling toward; without it Felix respawns in place.
+        """
         if not self._is_placed:
             self.place_at(self.local_row, self.column, building)
         self.last_fixed_points = 0
@@ -204,7 +212,7 @@ class Felix:
         elif self.state == FelixState.HIT_FALL:
             self._tick_hit_fall()
         elif self.state == FelixState.HIT_RESPAWN_WAIT:
-            self._tick_hit_respawn_wait(building)
+            self._tick_hit_respawn_wait(building, is_spot_threatened)
         elif self.state == FelixState.FINAL_HIT_ANIM:
             self._tick_final_hit_anim()
         elif self.state == FelixState.FINAL_HIT_HOLD:
@@ -335,13 +343,38 @@ class Felix:
         self.state = FelixState.HIT_RESPAWN_WAIT
         self._state_ticks = FELIX_RESPAWN_DELAY_TICKS
 
-    def _tick_hit_respawn_wait(self, building):
+    def _tick_hit_respawn_wait(self, building, is_spot_threatened):
         self._state_ticks -= 1
         if self._state_ticks > 0:
             return
         self.lives -= 1
-        # The same cell he was on, not the one a walk or jump was heading for.
-        self.place_at(self.local_row, self.column, building)
+        column = self._choose_respawn_column(building, is_spot_threatened)
+        self.place_at(self.local_row, column, building)
+
+    def _choose_respawn_column(self, building, is_spot_threatened):
+        """Pick the nearest column on this floor that no brick is falling toward.
+
+        [USER] deviation: the exe (FUN_0040c1a0) always respawns on the hit cell.
+        The bricks are frozen during the hit, so one above that cell could hit
+        him again right away. Nearest first, then toward the center column; his
+        own column if every spot is threatened. He starts from the cell he was
+        on, not the one a walk or jump was heading for.
+        """
+        if is_spot_threatened is None:
+            return self.column
+        candidates = sorted(
+            range(COLUMN_COUNT),
+            key=lambda column: (
+                abs(column - self.column),
+                abs(column - CENTER_COLUMN),
+                column,
+            ),
+        )
+        for column in candidates:
+            x, feet_y = self._anchor(building, self.local_row, column)
+            if not is_spot_threatened(_hitbox_at(x, feet_y)):
+                return column
+        return self.column
 
     def _tick_final_hit_anim(self):
         self._hit_anim_ticks += 1
@@ -357,7 +390,6 @@ class Felix:
         self._state_ticks -= 1
         if self._state_ticks > 0:
             return
-        self.lives = 0
         self.state = FelixState.GAME_OVER
 
     @staticmethod

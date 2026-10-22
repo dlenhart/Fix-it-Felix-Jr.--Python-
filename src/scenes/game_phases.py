@@ -94,7 +94,8 @@ class PlayPhase(GamePhase):
     """Normal play: Felix, Ralph, then bricks, each tick."""
 
     def tick(self, game: GameScene) -> GamePhase | None:
-        game.felix.tick(game.input_handler, game.building, game.sound)
+        game.felix.tick(game.input_handler, game.building, game.sound,
+                        is_spot_threatened=game.bricks.is_falling_toward)
         # Ruling 13: the game ends after the last death plays out, not on the fatal hit.
         if game.felix.is_game_over:
             game.end_game()

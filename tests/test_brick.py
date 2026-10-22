@@ -2,15 +2,17 @@ import os
 import random
 import sys
 
+import pygame
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from constants import (  # noqa: E402
     BRICK_BOUNCE_TICKS, BRICK_FALL_SPEED, BRICK_MAX_LIVE, BRICK_WINDOW_BREAKS_PER_SECTION,
     GROUND_Y,
 )
-from entities.brick import Brick, BrickField  # noqa: E402
+from entities.brick import BRICK_WIDTH, Brick, BrickField  # noqa: E402
 from entities.building import Building  # noqa: E402
-from entities.felix import Felix  # noqa: E402
+from entities.felix import HITBOX_HEIGHT, HITBOX_WIDTH, Felix  # noqa: E402
 
 
 class AlwaysNinetyNineRandom:
@@ -144,3 +146,32 @@ def test_spawn_ignored_past_live_limit():
     for _ in range(BRICK_MAX_LIVE + 5):
         field.spawn(0, 0)
     assert field.live_count == BRICK_MAX_LIVE
+
+
+def standing_hitbox(center_x, feet_y):
+    return pygame.Rect(center_x - HITBOX_WIDTH // 2, feet_y - HITBOX_HEIGHT,
+                       HITBOX_WIDTH, HITBOX_HEIGHT)
+
+
+def test_falling_brick_above_the_feet_threatens_the_spot():
+    field = BrickField(random.Random(0))
+    field.spawn(100, 50)
+    assert field.is_falling_toward(standing_hitbox(100, 200))
+    assert field.is_falling_toward(standing_hitbox(110, 200))  # partial horizontal overlap
+
+
+def test_brick_past_the_feet_or_beside_the_spot_is_no_threat():
+    field = BrickField(random.Random(0))
+    field.spawn(100, 210)
+    assert not field.is_falling_toward(standing_hitbox(100, 200))
+    field.spawn(100, 50)
+    edges_just_touch_x = 100 + BRICK_WIDTH // 2 + HITBOX_WIDTH // 2
+    assert not field.is_falling_toward(standing_hitbox(edges_just_touch_x, 200))
+
+
+def test_bouncing_brick_is_no_threat():
+    building, felix = make_world()
+    field = BrickField(random.Random(0))
+    field.spawn(200, GROUND_Y - 1)
+    field.tick(building, felix, level=1)
+    assert not field.is_falling_toward(standing_hitbox(200, GROUND_Y + 8))

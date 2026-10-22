@@ -238,6 +238,22 @@ def test_hit_freezes_ralph_and_bricks_until_respawn():
     assert frozen_world(game) != before
 
 
+def test_respawn_avoids_a_frozen_brick_above_the_hit_cell():
+    _, game = make_game()
+    reach_play(game)
+    game.bricks.clear()
+    hit_column = game.felix.column
+    spawn_brick_on_felix(game)
+    game.tick(MockInput())
+    assert game.felix.is_in_hit_sequence
+    hitbox = game.felix.hitbox()
+    game.bricks.spawn(hitbox.centerx, hitbox.top - 4)  # frozen right above his head
+
+    tick_until(game, lambda: not game.felix.is_in_hit_sequence)
+    assert game.felix.column != hit_column
+    assert not game.bricks.is_falling_toward(game.felix.hitbox())
+
+
 def test_final_hit_freezes_ralph_and_bricks():
     _, game = make_game()
     reach_play(game)

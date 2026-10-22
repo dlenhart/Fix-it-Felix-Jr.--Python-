@@ -319,6 +319,61 @@ def test_hit_mid_walk_respawns_on_the_cell_he_left():
     assert (f.local_row, f.column) == (0, 2)
 
 
+def respawn_with(felix, building, is_spot_threatened):
+    felix.hit()
+    fall_off(felix, building)
+    for _ in range(FELIX_RESPAWN_DELAY_TICKS):
+        felix.tick(MockInput(), building, None, is_spot_threatened)
+    assert felix.state == FelixState.IDLE
+
+
+def threatened_columns(building, local_row, *columns):
+    """A stub threat check: spots standing on the given columns are threatened."""
+    threatened_xs = {building.cell(local_row, column).center_x for column in columns}
+    return lambda hitbox: hitbox.centerx in threatened_xs
+
+
+def test_respawn_moves_to_the_nearest_unthreatened_column():
+    f, b = make_felix(1, 0)
+    respawn_with(f, b, threatened_columns(b, 1, 0))
+    assert (f.local_row, f.column) == (1, 1)
+    assert f.world_pos() == (b.cell(1, 1).center_x, b.sill_y(b.cell(1, 1)))
+
+
+def test_respawn_tie_breaks_toward_the_center():
+    f, b = make_felix(1, 1)
+    respawn_with(f, b, threatened_columns(b, 1, 1))
+    assert f.column == 2
+
+    f, b = make_felix(1, 3)
+    respawn_with(f, b, threatened_columns(b, 1, 3))
+    assert f.column == 2
+
+
+def test_respawn_from_the_center_tie_breaks_left():
+    f, b = make_felix(1, 2)
+    respawn_with(f, b, threatened_columns(b, 1, 2))
+    assert f.column == 1
+
+
+def test_respawn_skips_threatened_neighbours():
+    f, b = make_felix(1, 4)
+    respawn_with(f, b, threatened_columns(b, 1, 4, 3))
+    assert f.column == 2
+
+
+def test_respawn_stays_put_when_every_column_is_threatened():
+    f, b = make_felix(1, 3)
+    respawn_with(f, b, threatened_columns(b, 1, 0, 1, 2, 3, 4))
+    assert (f.local_row, f.column) == (1, 3)
+
+
+def test_respawn_stays_put_when_nothing_is_threatened():
+    f, b = make_felix(1, 3)
+    respawn_with(f, b, threatened_columns(b, 1))
+    assert (f.local_row, f.column) == (1, 3)
+
+
 def test_last_life_never_respawns_and_ends_in_game_over():
     f, b = make_felix(1, 1)
     f.lives = 1
@@ -326,6 +381,7 @@ def test_last_life_never_respawns_and_ends_in_game_over():
     start = f.world_pos()
     assert f.hit(sound) is True
     assert f.state == FelixState.FINAL_HIT_ANIM
+    assert f.lives == 0  # gone from the HUD at the fatal hit, not at GAME OVER
     assert sound.played == ["death"]
     states = set()
     for _ in range(5000):
@@ -335,7 +391,7 @@ def test_last_life_never_respawns_and_ends_in_game_over():
         states.add(f.state)
         if not f.is_game_over:
             assert f.world_pos() == start  # the final sequence stays on the sill
-            assert f.lives == 1
+            assert f.lives == 0
     assert f.is_game_over
     assert FelixState.IDLE not in states
     assert FelixState.HIT_FALL not in states

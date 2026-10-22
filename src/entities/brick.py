@@ -95,6 +95,22 @@ class BrickField:
     def clear(self) -> None:
         self._bricks.clear()
 
+    def is_falling_toward(self, hitbox: pygame.Rect) -> bool:
+        """True if a falling brick is above the hitbox's feet and overlaps it horizontally.
+
+        Bouncing bricks and bricks already past the feet can't hit it. Deliberately
+        conservative: a brick several floors up still counts, however long it needs.
+        """
+        for brick in self._bricks:
+            if brick.is_bouncing:
+                continue
+            brick_rect = brick.rect()
+            is_overlapping_horizontally = (brick_rect.left < hitbox.right
+                                           and hitbox.left < brick_rect.right)
+            if is_overlapping_horizontally and brick_rect.bottom <= hitbox.bottom:
+                return True
+        return False
+
     def reset_break_budget(self) -> None:
         self._window_break_budget = BRICK_WINDOW_BREAKS_PER_SECTION
 
