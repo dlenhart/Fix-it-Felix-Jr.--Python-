@@ -31,8 +31,8 @@ class Pie:
              camera: Camera, palette: int) -> None:
         frame_index = (self._age_ticks // PIE_FRAME_DISPLAY_TICKS) % len(PIE_FRAMES)
         frame = sprites.get_frame(PIE_FRAMES[frame_index], palette)
-        # [USER] centered on the cell and resting on top of the sill ledge, on the
-        # sill obstacle's line; where the exe puts the pie's node isn't decoded.
-        node_x, node_y = building.sill_middle_x(self.cell), building.sill_y(self.cell)
+        # [EXE] FUN_00407190: the pie shares the Nicelander's node, so the two
+        # bottom rows line up and the Nicelander holds the pie.
+        node_x, node_y = building.nicelander_node(self.cell)
         origin_x, origin_y = PIE_ORIGIN
         screen.blit(frame, (node_x - origin_x, camera.to_screen_y(node_y) - origin_y))

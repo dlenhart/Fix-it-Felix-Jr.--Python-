@@ -146,6 +146,7 @@ The exact pane-state → frame mapping is **[OPEN]**; confirm it visually when b
 
 - A **Nicelander appears only in a window whose bottom pane is fully smashed** (state 5), never on Felix's floor and never in the door or arched window. It picks randomly from up to 3 candidates, using one of **6 characters** (table `0x419e50`).
 - The **pie appears** when the Nicelander's animation reaches frame 2 (the handoff).
+- **Position** (decoded 2026-10-27): the Nicelander node (`DAT_004217b0`) and the pie node (`DAT_004217b4`) are both set to `(cell[7] + 5, cell[8] + 9)`, both at depth 0x50, with the pie linked after the Nicelander, so it's drawn in front. `cell[7]`/`cell[8]` are the bottom pane node from `FUN_00404ea0`, `(X*8+6, EBX*8+0x19)`, and the sill (`cell+0x74`) is `EBX*8+0x24`. So the shared node is the cell's middle, **2 px above the sill**. Both anims anchor on their bottom row (Nicelander origin (6, 15), pie origin (5, 15)), so the Nicelander holds the pie.
 - **Timer:**
   - when it's 0, try to spawn a Nicelander, which sets it to 1500 ticks (25s);
   - while no Nicelander is out, it counts down;

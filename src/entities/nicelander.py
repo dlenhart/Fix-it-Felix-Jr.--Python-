@@ -10,7 +10,7 @@ from entities.building import PANE_SMASHED, Building, CellKind, WindowCell
 from entities.felix import Felix
 from entities.pie import Pie
 from sprite_data import (
-    NICELANDER_CHARACTER_COUNT, NICELANDER_HANDOFF_FRAME_INDEX,
+    NICELANDER_CHARACTER_COUNT, NICELANDER_HANDOFF_FRAME_INDEX, NICELANDER_ORIGIN,
     NICELANDER_RISE_HOLD_TICKS, nicelander_rise_frame_ids,
 )
 from sprite_sheet import SpriteSheet
@@ -66,8 +66,10 @@ class Nicelander:
              camera: Camera, palette: int) -> None:
         frame_id = nicelander_rise_frame_ids(self.character)[self.frame_index]
         frame = sprites.get_frame(frame_id, palette)
-        pane = building.bottom_pane_rect(self.cell)
-        screen.blit(frame, (pane.x, camera.to_screen_y(pane.y)))
+        node_x, node_y = building.nicelander_node(self.cell)
+        origin_x, origin_y = NICELANDER_ORIGIN
+        screen.blit(frame, (node_x - origin_x, camera.to_screen_y(node_y) - origin_y))
+        # FUN_00407190 links the pie after the Nicelander at the same depth: drawn in front.
         if self.pie is not None:
             self.pie.draw(screen, sprites, building, camera, palette)
 

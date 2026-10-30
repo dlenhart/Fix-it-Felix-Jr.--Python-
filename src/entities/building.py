@@ -38,9 +38,11 @@ DOOR_FIRST_PIECE = CELL_PIECE[CellKind.DOOR]
 DOOR_MAX_DRAWN_DAMAGE = 3  # [ASSUMED] door art has 4 pieces: intact + 3 damage steps
 PANE_TOP_OFFSET_Y = 0xC  # [EXE] FUN_00404ea0 top pane, from the cell piece top
 PANE_BOTTOM_OFFSET_Y = 0x19  # [EXE] FUN_00404ea0 bottom pane
-# TODO: FUN_00404ea0 puts the pane nodes at X*8+6 (types 0/3) and X*8+10 (type 4,
-# whose piece is drawn at X*8+4), with anim 66's origin (0, 0): cell.x + 6, not + 4.
-PANE_OFFSET_X = 4  # [ASSUMED] centers the pane art in the 24px cell piece
+# [EXE] FUN_00407190: the Nicelander/pie node, bottom pane node + 9 = sill - 2.
+NICELANDER_NODE_ABOVE_SILL_Y = 2
+# [EXE] FUN_00404ea0 puts the pane nodes at X*8+6 (types 0/3) and X*8+10 (type 4,
+# whose piece is drawn at X*8+4), with anim 66's origin (0, 0): cell.x + 6.
+PANE_OFFSET_X = 6
 PANE_WINDOW_KINDS = (CellKind.PLAIN, CellKind.PEDIMENT_A, CellKind.PEDIMENT_B)
 GLASS_OFFSET_X = 6  # [EXE] FUN_00404ea0 example rect
 GLASS_WIDTH = 12  # [EXE] FUN_00404ea0 example rect
@@ -71,17 +73,21 @@ SILL_SPAN_X: dict[CellKind, tuple[int, int]] = {
 #   top row - 1 (y 0x100) and the arched window at the second floor's top
 #   row + 1 (y 0xd8): rows 56 (on top of the steps, rows 57-63) and 37 (inside
 #   the balustrade, rows 32-39).
-# TODO: FUN_00405550 draws the ground floor's pane cells at the floor's top row
-# and the arched window at the second floor's top row + 1, so both end 8 px
-# above their floor's bottom. We bottom-align every cell piece, which draws those
-# cells, and their sills with them, 8 px lower than the exe. The door, the
-# second floor's panes and both brick floors match.
 SILL_ROW_IN_PIECE: dict[CellKind, int] = {
     CellKind.PLAIN: 0x24,
     CellKind.PEDIMENT_A: 0x24,
     CellKind.PEDIMENT_B: 0x24,
     CellKind.DOOR: 0x138 - 0x100,
     CellKind.ARCHED: 0xFD - 0xD8,
+}
+
+# [EXE] FUN_00405550 draws the ground floor's pane cells at the floor's top row
+# and the arched window at the second floor's top row + 1, so both end 8 px
+# above their floor's bottom. Every other cell piece (the door, the second
+# floor's panes, both brick floors) ends on its floor's bottom.
+CELL_PIECE_BOTTOM_INSET_Y: dict[tuple[FloorType, CellKind], int] = {
+    (FloorType.GROUND, CellKind.PLAIN): 8,
+    (FloorType.SECOND, CellKind.ARCHED): 8,
 }
 
 # [EXE] FUN_004070f0, table 0x419e40: a bumped sill obstacle's y offset steps
@@ -247,9 +253,23 @@ class Building:
         """
         return self.sill_middle_x(cell), self.sill_y(cell)
 
+    def nicelander_node(self, cell: WindowCell) -> tuple[int, int]:
+        """Shared node of the cell's Nicelander and its pie (anims 92-97 and 64).
+
+        [EXE] FUN_00407190 puts both at the bottom pane's node plus (5, 9). The
+        pane node (FUN_00404ea0) is (X*8+6, EBX*8+0x19) and the sill is
+        EBX*8+0x24, so the node is the cell's middle, 2 px above the sill.
+        """
+        return self.sill_middle_x(cell), self.sill_y(cell) - NICELANDER_NODE_ABOVE_SILL_Y
+
     def _piece_top_y(self, cell: WindowCell) -> int:
+        floor = self._floor_for_cell(cell)
         piece_height = BUILDING_PIECES[CELL_PIECE[cell.kind]][3]
-        return self._floor_for_cell(cell).bottom_y - piece_height
+        return floor.bottom_y - self._piece_bottom_inset_y(floor, cell) - piece_height
+
+    @staticmethod
+    def _piece_bottom_inset_y(floor: Floor, cell: WindowCell) -> int:
+        return CELL_PIECE_BOTTOM_INSET_Y.get((floor.floor_type, cell.kind), 0)
 
     def glass_rect(self, cell: WindowCell) -> pygame.Rect:
         """World-space rect of the cell's breakable glass.
@@ -257,9 +277,8 @@ class Building:
         Pane windows use the FUN_00404ea0 example rect; the door and arched
         window use their whole piece.
         """
-        floor = self._floor_for_cell(cell)
         _, _, piece_width, piece_height = BUILDING_PIECES[CELL_PIECE[cell.kind]]
-        piece_top = floor.bottom_y - piece_height
+        piece_top = self._piece_top_y(cell)
         if cell.kind not in PANE_WINDOW_KINDS:
             return pygame.Rect(cell.x, piece_top, piece_width, piece_height)
         return pygame.Rect(
@@ -268,13 +287,6 @@ class Building:
             GLASS_WIDTH,
             GLASS_HEIGHT,
         )
-
-    def bottom_pane_rect(self, cell: WindowCell) -> pygame.Rect:
-        """World-space rect of a pane window's bottom pane (16x16 pane art)."""
-        floor = self._floor_for_cell(cell)
-        _, _, _, piece_height = BUILDING_PIECES[CELL_PIECE[cell.kind]]
-        piece_top = floor.bottom_y - piece_height
-        return pygame.Rect(cell.x + PANE_OFFSET_X, piece_top + PANE_BOTTOM_OFFSET_Y, 16, 16)
 
     def draw(
         self,
@@ -306,7 +318,8 @@ class Building:
         cell: WindowCell,
     ) -> None:
         piece = sprites.get_piece(self._cell_piece_id(cell), palette)
-        piece_top = camera.to_screen_y(floor.bottom_y) - piece.get_height()
+        piece_bottom = camera.to_screen_y(floor.bottom_y) - self._piece_bottom_inset_y(floor, cell)
+        piece_top = piece_bottom - piece.get_height()
         screen.blit(piece, (cell.x, piece_top))
         if cell.kind not in PANE_WINDOW_KINDS:
             return

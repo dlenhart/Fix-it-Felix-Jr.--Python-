@@ -2,6 +2,8 @@ import os
 import random
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 os.environ["SDL_VIDEODRIVER"] = "dummy"
@@ -21,7 +23,7 @@ from scenes.game_phases import (  # noqa: E402
     READY_PAUSE_TICKS, SECTION_SCROLL_SPEED,
     LevelEndPhase, LevelStartPhase, PlayPhase, SectionClearPhase,
 )
-from scenes.game_scene import GameScene  # noqa: E402
+from scenes.game_scene import GameScene, start_level_from_environment  # noqa: E402
 
 TICK_LIMIT = 5000
 
@@ -371,3 +373,20 @@ def test_draw_renders_every_phase():
             if isinstance(game.phase, (PlayPhase, LevelEndPhase)):
                 break
     assert {SectionClearPhase, PlayPhase, LevelEndPhase} <= seen_phases
+
+
+def test_start_level_defaults_to_one(monkeypatch):
+    monkeypatch.delenv("FELIX_START_LEVEL", raising=False)
+    assert start_level_from_environment() == 1
+
+
+def test_start_level_reads_the_environment(monkeypatch):
+    monkeypatch.setenv("FELIX_START_LEVEL", "5")
+    assert start_level_from_environment() == 5
+
+
+@pytest.mark.parametrize("raw_level", ["abc", "0", "-2"])
+def test_start_level_rejects_bad_values(monkeypatch, raw_level):
+    monkeypatch.setenv("FELIX_START_LEVEL", raw_level)
+    with pytest.raises(ValueError):
+        start_level_from_environment()

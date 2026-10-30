@@ -33,10 +33,11 @@ DROP_HAZARD_FALL_SPEED = 1.9  # [EXE] FUN_004073f0 px/tick
 # TODO: FUN_00409360 caps the hazards *spawned* this section (0x421834, reset per
 # section) at the level's limit, plus 3 slots; this caps the live count instead.
 DROP_HAZARD_MAX_LIVE = 3  # [EXE] FUN_00409360
-DROP_HAZARD_BLINKS = 4  # [EXE] FUN_004073f0 blinks after Felix touches it
-# TODO: FUN_004073f0 toggles visibility every 15 ticks (timer 0xf, count 4: four
-# visible phases, three hidden, about 105 ticks), not every 4.
-DROP_HAZARD_BLINK_HALF_PERIOD_TICKS = 4  # [ASSUMED] matches the brick and Felix blink rhythm
+# [EXE] FUN_004073f0, after Felix touches it: visibility toggles every 15 ticks
+# (timer 0xf, count 4), four visible phases and three hidden, then it is gone.
+DROP_HAZARD_BLINKS = 4
+DROP_HAZARD_BLINK_HALF_PERIOD_TICKS = 15
+DROP_HAZARD_BLINK_TICKS = (2 * DROP_HAZARD_BLINKS - 1) * DROP_HAZARD_BLINK_HALF_PERIOD_TICKS
 DROP_HAZARD_SPAWN_DROP = 8  # [EXE] FUN_00409360 spawns at Ralph's y + 8
 # [EXE] FUN_004073f0 touch test (0x416b20, 0x416c18): within 4 px across and 5 px
 # up or down of the hazard's node, against Felix's own box.
@@ -173,7 +174,7 @@ class DropHazard:
         self._previous_y = self.y
         if self.is_blinking:
             self._blink_ticks += 1
-            if self._blink_ticks >= DROP_HAZARD_BLINKS * 2 * DROP_HAZARD_BLINK_HALF_PERIOD_TICKS:
+            if self._blink_ticks >= DROP_HAZARD_BLINK_TICKS:
                 self.is_finished = True
             return
         self.y = min(self.y + DROP_HAZARD_FALL_SPEED, self.landing_y)

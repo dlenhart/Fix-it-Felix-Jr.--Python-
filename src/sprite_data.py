@@ -36,6 +36,7 @@ NICELANDER_CHARACTER_COUNT = 6  # [EXE] table 0x419e50
 NICELANDER_RISE_FRAME_ORDER = (0, 1, 1, 0)  # [EXE] 0 = peek, 1 = bust
 NICELANDER_RISE_HOLD_TICKS = (10, 60, 10, 10)  # [EXE] anim 92 records, raw counts
 NICELANDER_HANDOFF_FRAME_INDEX = 2  # [EXE] pass 4: the pie appears at animation frame 2
+NICELANDER_ORIGIN = (6, 15)  # [EXE] anims 92-97, the art's bottom row
 
 
 def nicelander_rise_frame_ids(character: int) -> tuple[int, ...]:

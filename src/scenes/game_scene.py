@@ -1,3 +1,4 @@
+import os
 import random
 
 import pygame
@@ -16,6 +17,7 @@ from entities.ralph import Ralph
 from entities.brick import BrickField
 from entities.hazards import HazardField
 from entities.nicelander import NicelanderDirector
+from level_config import get_level_config
 from scenes.game_phases import GamePhase, LevelStartPhase
 
 PALETTE_COUNT = 5
@@ -28,6 +30,21 @@ HUD_LIFE_ICON_Y = 4  # [ASSUMED] centers the 16px icon in the band
 HUD_LIFE_ICON_SPACING = 1  # [ASSUMED]
 HUD_MAX_LIFE_ICONS = 5  # [ASSUMED]
 HUD_LIFE_COUNT_GAP = 2  # [ASSUMED] gap between the xN text and the first icon
+START_LEVEL_ENVIRONMENT_VARIABLE = "FELIX_START_LEVEL"
+
+
+def start_level_from_environment() -> int:
+    """Return the level a new game starts on: 1, or FELIX_START_LEVEL when set.
+
+    A dev shortcut for reaching later levels, e.g. FELIX_START_LEVEL=5 python3 src/main.py.
+    Raises ValueError when the value is not an integer or is below 1.
+    """
+    raw_level = os.environ.get(START_LEVEL_ENVIRONMENT_VARIABLE)
+    if raw_level is None:
+        return 1
+    level = int(raw_level)
+    get_level_config(level)  # validates level >= 1
+    return level
 
 
 class GameScene(Scene):
@@ -39,7 +56,7 @@ class GameScene(Scene):
         self.sprites = SpriteSheet()
         self.sound = SoundManager()
         self.font = FontRenderer(self.sprites)
-        self.level = 1
+        self.level = start_level_from_environment()
         self.felix = Felix()
         self.building: Building | None = None
         self.camera: Camera | None = None

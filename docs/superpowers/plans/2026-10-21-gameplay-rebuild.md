@@ -613,6 +613,74 @@ def test_default_high_scores_when_no_file(tmp_path, monkeypatch): ...  # point S
 
 ---
 
+## Phase H — Pre-refactor safety net
+
+### Task 12: Test coverage for infrastructure, public-API-only tests, coverage tool
+
+Added 2026-10-21 at the user's request. The user plans a refactor after this branch, and this task is the regression net for it. Behavior must not change in this task; it's tests and tooling only. If a test exposes a bug, leave a `# TODO:` comment, mark the test `xfail` with the reason, and report it.
+
+**Files:**
+- Create: `requirements-dev.txt` (`coverage==<exact installed version>`; dev-only, the game doesn't need it at runtime), `.coveragerc`
+- Create: `tests/test_input_handler.py`, `tests/test_scene_manager.py`, `tests/test_font_renderer.py`, `tests/test_sprite_sheet.py`
+- Modify: `tests/test_high_scores.py` (from Task 11; extend it), `tests/test_felix.py`, `tests/test_game_pause.py`, `tests/test_ralph.py`, `tests/test_brick.py`, `tests/test_game_flow.py`
+- Modify (only if needed to remove a test's reach into private state): add a read-only public property to the class under test. No behavior changes.
+- Modify: `STATUS.md` (a "Running tests" section)
+
+**Interfaces:**
+- Consumes: `InputHandler.poll(events)`, `consume_just_pressed()`, `is_pressed`, `is_just_pressed`, `has_lost_focus`; `SceneManager.push/replace/pop/tick/draw/current`, `Scene.on_enter/on_exit`; `FontRenderer.render_text`, `scale_text_to_fit(surface, max_width, preferred_scale)`; `SpriteSheet.get_frame/get_piece/get_sprite`; `high_score_scene.load_scores/save_scores/SCORES_FILE/MAX_SCORES`.
+- Produces: a coverage command in `STATUS.md`, and a `.coveragerc` that fails under the threshold.
+
+- [ ] **Step 1: Install the tool.** Run `python3 -m pip install coverage`, then pin the exact installed version in `requirements-dev.txt`.
+- [ ] **Step 2: Configure `.coveragerc`.**
+  - `[run]`: `source = src`, `branch = True`.
+  - Omit the GUI-only modules the user verifies by hand: `src/main.py`, `src/scenes/title_scene.py`, `src/scenes/cutscene_scene.py`, `src/scenes/game_over_scene.py`.
+  - `[report]`: `fail_under = 90` `[ASSUMED]` (logic-layer line+branch), `show_missing = True`.
+- [ ] **Step 3: Measure first.** Run `python3 -m coverage run -m pytest tests -q && python3 -m coverage report`. Save the before-numbers in the report, per module.
+- [ ] **Step 4: Write the infrastructure tests.** Each guards a bug that already shipped once, or a fail-fast rule:
+
+```python
+# tests/test_input_handler.py — guards the arrow-key bug (presses lost between render polls and game ticks)
+def test_just_pressed_latches_across_polls_until_consumed(): ...   # KEYDOWN in poll 1, empty poll 2, still just-pressed; gone after consume_just_pressed()
+def test_held_key_is_pressed_but_not_just_pressed_after_consume(): ...
+def test_keyup_clears_pressed(): ...
+def test_every_keyboard_map_entry_maps_to_an_action(): ...
+def test_focus_loss_reported(): ...                                # whichever event poll() treats as focus loss
+
+# tests/test_scene_manager.py
+def test_push_calls_on_enter_and_becomes_current(): ...
+def test_replace_calls_on_exit_then_on_enter(): ...
+def test_pop_returns_to_previous_scene(): ...
+def test_tick_and_draw_go_to_current_scene_only(): ...            # draw receives alpha
+
+# tests/test_font_renderer.py
+def test_digit_one_renders_one_not_slash(): ...                    # guards the duplicate-"1" char map bug: "1" and "/" surfaces differ
+def test_every_supported_char_renders_nonempty(): ...
+def test_scale_text_to_fit_never_exceeds_max_width(): ...          # e.g. "HEY. YOU MOVED MY STUMP!" at 2x into 240
+def test_scale_text_to_fit_keeps_preferred_scale_when_it_fits(): ...
+
+# tests/test_sprite_sheet.py — fail-fast rule
+def test_get_frame_unknown_id_raises(): ...
+def test_get_piece_unknown_id_raises(): ...
+def test_flipped_frame_is_mirror_of_unflipped(): ...
+def test_every_named_frame_id_in_sprite_data_resolves(): ...       # walk the *_FRAMES tuples and frame-id constants
+
+# tests/test_high_scores.py (extend Task 11's)
+def test_save_then_load_round_trips(tmp_path, monkeypatch): ...
+def test_scores_capped_at_max_and_sorted_descending(tmp_path, monkeypatch): ...
+def test_corrupt_scores_file_behavior(tmp_path, monkeypatch): ...  # pin whatever it does today; if it silently swallows, xfail + TODO (fail-fast rule)
+```
+
+- [ ] **Step 5: Use only the public interface.**
+  - Remove test reads of private state: `felix._hit_frame_id`, `game._is_paused`, `ralph._target_x`, and `bricks._bricks` / `game.bricks._bricks`.
+  - Assert on public behavior instead (position, state, `is_paused`, a `bricks` iterable or count property).
+  - Add a read-only property to the class only where no public observable exists. Each one is listed in the report.
+  - A MockInput's own private fields are fine.
+- [ ] **Step 6: Close the gaps.** Rerun coverage. For each module under 90%, add tests for its uncovered logic branches until the total passes `fail_under`. If a branch can't reasonably be tested (pygame display or audio only), add `# pragma: no cover` with a one-line why. List each one in the report.
+- [ ] **Step 7: Run** `python3 -m coverage run -m pytest tests -q && python3 -m coverage report`. Expected: all tests pass, no warnings in the output, and the report passes `fail_under`. Save the after-numbers in the report, per module.
+- [ ] **Step 8: Update `STATUS.md`** with how to run the tests and coverage (`pip install -r requirements-dev.txt`, then the Step 7 command).
+
+---
+
 ## Out of scope (tracked, not planned)
 
 - Intro story cutscene (stump, bulldozers), attract mode, arcade front-end screens.

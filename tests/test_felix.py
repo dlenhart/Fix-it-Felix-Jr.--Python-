@@ -93,13 +93,13 @@ def test_feet_on_sill_for_every_cell_kind():
 def test_sill_y_is_the_exe_sill_row_of_each_piece():
     b = Building(1, Random(0))
     ground, second = b.section_floors()[:2]
-    assert b.sill_y(b.cell(0, 0)) == ground.bottom_y - 48 + 36  # pane: on top of the ledge
+    assert b.sill_y(b.cell(0, 0)) == ground.top_y + 36  # pane: on top of the ledge
     door = b.cell(0, 2)
     assert door.kind == CellKind.DOOR
     assert b.sill_y(door) == 0x138  # the exe's absolute door sill, on top of the steps
     arched = b.cell(1, 2)
     assert arched.kind == CellKind.ARCHED
-    assert b.sill_y(arched) == second.bottom_y - 40 + 37
+    assert b.sill_y(arched) == second.top_y + 8 + 37  # the exe's top row + 1
 
 
 def test_hitbox_is_12_by_28_standing_on_feet():

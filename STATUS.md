@@ -1,26 +1,34 @@
 # Fix-It Felix Jr. — Implementation Status
 
-_Last updated: 2026-10-21_
+_Last updated: 2026-10-30_
 
 ## Gameplay rebuild in progress (branch `gameplay-rebuild`)
 
-The game layer is being rebuilt from Ghidra pass 4, following `docs/superpowers/plans/2026-10-21-gameplay-rebuild.md`. Tasks 1–8 are done and reviewed. Task 8b, the playtest fix for Felix's hit sequence and sill height, is the latest change. Run it with `python3 src/main.py`.
+The game layer is being rebuilt from Ghidra pass 4, following `docs/superpowers/plans/2026-10-21-gameplay-rebuild.md`. **Tasks 1–10 are done, reviewed and committed**, plus the playtest fixes 8b/8c and 10b/10c. Latest commit: `bc0cd91`. Run the game with `python3 src/main.py`.
 
-### Your playtest checklist (Task 8 checkpoint)
+### Task 10 checkpoint: passed (2026-10-30)
 
-**Already verified (2026-10-21):** Ralph's intro climb, "LEVEL 1" ready pause, Felix's movement, one-swing window fix, lives going down when hit, Ralph's patrol, HUD, and bricks bouncing off the ground.
+The checkpoint's fixes (uncommitted until the user commits):
+- **Nicelander and pie position** (exe `FUN_00407190`): both share a node at the cell's middle, 2 px above the sill (`Building.nicelander_node`), with the pie drawn in front. Recorded in the pass 4 findings doc.
+- **Exe cell placement** (`FUN_00405550`): the ground floor's side windows and the arched window sit 8 px higher, sills included. The arched-window step went from 9 px to 1 px; the ground-floor pane-to-door step went from 4 px to 12 px, as in the exe. The user found the step fine.
+- **Panes** are drawn at `cell.x + 6`, the exe's value (was `+ 4`).
+- **Drop-hazard blink** (`FUN_004073f0`): every 15 ticks, 4 visible and 3 hidden phases (105 ticks), then gone. It was every 4 ticks, so it seemed to vanish at the respawn.
+- **Fix sound:** kept as is. Sound 1 plays when a swing starts at a broken window (`FUN_0040b510`), and the exe plays nothing extra when the window becomes whole.
 
-**Verify the new fixes:**
-- [ ] **Hit animation:** when a brick hits Felix, he plays a knocked-down animation in place, then falls off the building. He's gone for about 1 second, then reappears on the **same window**. The life comes off when he reappears, not at the moment of the hit.
-- [ ] **Ralph and bricks freeze** while Felix is in that hit sequence, and resume when he's back.
-- [ ] **Felix stands on the window sill**, with his feet on the sill rather than about 8px below it.
+**Checked in play (levels 3 and 5):** Felix stands on the sill ledges (stone floors, ground floor, door); obstacles rest on the ledge, block the drop down and bump a jump up from below (with a sound and a slab bounce); jumping up from an obstacle window climbs normally; Ralph's window-break, jump and drop sounds; window, arched-window and pane alignment; the Nicelander rises with the pie in front; brick floors (side and center windows in their bays); the drop-hazard is a red brick chunk in the wall gap and costs a life when walked into after landing. Earlier (2026-10-22): Nicelanders and pies (collect → 8 s blink, bricks bounce off, Ralph rages), obstacles per section, birds.
 
-**Still to verify from before:**
-- [ ] **Last life:** losing the final life plays the death animation, then GAME OVER, with no instant cut.
-- [ ] **Section clear:** fixing the last broken window on the bottom 4 floors shows "YOU FIXED IT!" and Ralph's pose. Then Ralph climbs up through the next section, wrecking windows, and the screen scrolls up. (Known gap: Felix drops off the bottom during the scroll and reappears, instead of moving up with it.)
-- [ ] **Level end:** after section 2, a short hold, then level 2 starts with your score and lives carried over. On level 2, bricks can occasionally crack windows.
+**Not seen in play:** a falling drop-hazard being harmless (the tests cover it). Open question: drop-hazards freeze during Felix's hit sequence like Ralph and the bricks (`FUN_0040e1d0`); whether the exe freezes them too isn't decoded.
 
-**Not built yet (no need to report):** Nicelanders, pies, birds, sill obstacles, Ralph's dropped objects (Tasks 9–10), and the roof/medal ending (Task 11). The intro cutscene is still the old one, which we'll revisit separately.
+**Dev shortcut (kept on purpose):** start on any level with `FELIX_START_LEVEL=5 python3 src/main.py` (`start_level_from_environment` in `src/scenes/game_scene.py`). A non-integer or a level below 1 raises at game start.
+
+**Next:** Task 11 (roof/medal ending, a user checkpoint) → Task 12 (pre-refactor test safety net, coverage ≥ 90%) → final whole-branch review.
+
+### Earlier checkpoints (all passed)
+- **Task 8 (2026-10-21/22):** hit sequence (knocked down, falls, ~1 s gone, respawn, life lost at the respawn), Ralph and bricks freeze during it, last life → death animation → GAME OVER (the last head leaves the HUD at the fatal hit), section clear → Ralph climbs → scroll, level end → next level with score and lives kept.
+- **Your rulings:** safer respawn (nearest window on the same floor that no brick is falling toward; ties toward the center, then left; fallback to the same window); Felix sliding off during the section scroll is fine (the exe does it too); door damage visibility left as is; brick cracks on level 2 verified by simulation.
+- **Level table (exe):** levels 1–2 are 9 floors / 2 sections, levels 3–4 are 13 / 3, level 5+ is 17 / 4. Obstacles from level 3, birds from level 4, dropped objects from level 5.
+
+**Still not built:** the roof/medal ending (Task 11). The intro cutscene is still the old one, to revisit separately.
 
 ## Done — Tasks 1-14 (all reviewed, all committed)
 

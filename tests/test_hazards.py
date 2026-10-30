@@ -14,8 +14,8 @@ pygame.display.set_mode((1, 1))
 from entities.building import Building  # noqa: E402
 from entities.felix import Felix  # noqa: E402
 from entities.hazards import (  # noqa: E402
-    BIRD_SPEED, BIRD_WRAP_LEFT_X, BIRD_WRAP_RIGHT_X, DROP_HAZARD_BLINKS,
-    DROP_HAZARD_BLINK_HALF_PERIOD_TICKS, DROP_HAZARD_MAX_LIVE, Bird, HazardField,
+    BIRD_SPEED, BIRD_WRAP_LEFT_X, BIRD_WRAP_RIGHT_X, DROP_HAZARD_BLINK_TICKS,
+    DROP_HAZARD_MAX_LIVE, Bird, HazardField,
     clear_sill_obstacles, place_sill_obstacles, sill_obstacle_rect,
 )
 from level_config import CellKind, get_level_config  # noqa: E402
@@ -237,9 +237,11 @@ def test_landed_drop_hazard_hits_felix_once_then_blinks_away():
     felix = StubFelix(felix_box_on(hazard))
     assert field.tick(building, felix) is True
     assert hazard.is_blinking and felix.hit_count == 1
-    blink_ticks = DROP_HAZARD_BLINKS * 2 * DROP_HAZARD_BLINK_HALF_PERIOD_TICKS
-    for _ in range(blink_ticks):
+    assert DROP_HAZARD_BLINK_TICKS == 105  # FUN_004073f0: 7 phases of 15 ticks
+    for _ in range(DROP_HAZARD_BLINK_TICKS - 1):
         assert field.tick(building, felix) is False
+    assert field.drop_hazards == (hazard,)
+    assert field.tick(building, felix) is False
     assert felix.hit_count == 1
     assert field.drop_hazards == ()
 

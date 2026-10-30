@@ -12,6 +12,7 @@ import pytest  # noqa: E402
 from camera import Camera  # noqa: E402
 from entities.building import Building  # noqa: E402
 from entities.felix import Felix  # noqa: E402
+from entities.nicelander import Nicelander  # noqa: E402
 from entities.pie import Pie  # noqa: E402
 from sprite_sheet import SpriteSheet  # noqa: E402
 
@@ -26,10 +27,12 @@ def display():
 
 def test_glass_rect_plain_cell_and_door():
     building = Building(1, random.Random(0))
-    plain = building.floors[0].cells[0]  # x=40, piece 16 is 24x48 on bottom_y 320
-    assert building.glass_rect(plain) == pygame.Rect(46, 272 + 12, 12, 23)
+    plain = building.floors[0].cells[0]  # x=40, piece 16 is 24x48 at the ground floor's top, y 264
+    assert building.glass_rect(plain) == pygame.Rect(46, 264 + 12, 12, 23)
     door = building.floors[0].cells[2]  # x=96, piece 2 is 48x64
     assert building.glass_rect(door) == pygame.Rect(96, 256, 48, 64)
+    arched = building.floors[1].cells[2]  # FUN_00405550: the second floor's top row + 1, y 0xd8
+    assert building.glass_rect(arched) == pygame.Rect(96, 0xD8, 48, 40)
 
 
 def test_draw_leaves_pixels_near_bottom():
@@ -62,12 +65,24 @@ def test_felix_lowest_pixel_row_is_the_sill():
         assert bounds.bottom - 1 == building.sill_y(building.cell(local_row, column))
 
 
-def test_pie_rests_on_the_sill_centered_on_the_cell():
+def test_pie_sits_on_the_nicelander_node_centered_on_the_cell():
     building = Building(3, random.Random(0))
     for local_row, column in ((1, 0), (2, 2), (3, 4)):
         cell = building.cell(local_row, column)
         pie = Pie(cell)
         bounds = drawn_bounds(
             lambda screen: pie.draw(screen, SpriteSheet(), building, Camera(), 0))
-        assert bounds.bottom - 1 == building.sill_y(cell)
+        assert bounds.bottom - 1 == building.sill_y(cell) - 2
         assert bounds.left + bounds.width // 2 == building.sill_middle_x(cell)
+
+
+def test_nicelander_bottom_row_is_two_pixels_above_the_sill():
+    building = Building(3, random.Random(0))
+    for local_row, column in ((1, 0), (2, 3), (3, 4)):
+        cell = building.cell(local_row, column)
+        node_x, node_y = building.nicelander_node(cell)
+        assert (node_x, node_y) == (building.sill_middle_x(cell), building.sill_y(cell) - 2)
+        nicelander = Nicelander(cell, 0)
+        bounds = drawn_bounds(
+            lambda screen: nicelander.draw(screen, SpriteSheet(), building, Camera(), 0))
+        assert bounds.bottom - 1 == node_y

@@ -96,11 +96,12 @@ def test_exe_sill_row_and_bounds():
     ground, second, brick = b.section_floors()[:3]
     pane = ground.cells[0]
     # FUN_00404ea0: pane sill at piece top + 0x24, bounds X*8 .. X*8+0x17.
-    assert b.sill_y(pane) == ground.bottom_y - 48 + 36
+    # FUN_00405550 draws the ground floor's panes at the floor's top row.
+    assert b.sill_y(pane) == ground.top_y + 36
     assert b.sill_span_x(pane) == (40, 63)
     assert b.sill_y(ground.cells[2]) == 0x138  # the door's piece top is the exe's (y 256)
-    # The arched sill is the exe's row 37 of the piece, on our piece, drawn 8 px lower.
-    assert b.sill_y(second.cells[2]) == 0xFD + 8
+    assert b.sill_y(second.cells[2]) == 0xFD  # the exe's absolute arched sill
+    assert b.sill_y(second.cells[0]) == second.bottom_y - 48 + 36
     assert b.sill_y(brick.cells[0]) == brick.bottom_y - 48 + 36
     assert b.sill_span_x(ground.cells[2]) == (100, 139)
     # Type 4 cell: exe stores X*8+4 .. X*8+0x1b with X*8 = 104, and draws the piece at 108.
