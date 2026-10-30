@@ -15,14 +15,20 @@ INITIALS_LENGTH = 3           # Ghidra-confirmed: 3 chars
 LETTER_OPTIONS = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789."
 
 
-# FUN_0040a060 seeds the table with these scores; the exe's initials are blank [ASSUMED].
-DEFAULT_HIGH_SCORES = [15000, 10000, 8000, 6000, 4000]
-DEFAULT_INITIALS = "   "  # [ASSUMED]
+# [EXE] FUN_0040a060 seeds the table with these names (string table 0x419e68) and
+# scores; both the scores and the names are from the exe.
+DEFAULT_HIGH_SCORES = [
+    ("VAV", 15000),
+    ("DES", 10000),
+    ("RYS", 8000),
+    ("KYL", 6000),
+    ("CMI", 4000),
+]
 
 
 def default_scores():
-    """The table shown before anyone has played: the exe's scores with blank initials."""
-    return [{"name": DEFAULT_INITIALS, "score": score} for score in DEFAULT_HIGH_SCORES]
+    """The table shown before anyone has played."""
+    return [{"name": name, "score": score} for name, score in DEFAULT_HIGH_SCORES]
 
 
 def load_scores():

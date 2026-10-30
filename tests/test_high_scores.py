@@ -12,8 +12,8 @@ from scenes import high_score_scene  # noqa: E402
 def test_default_high_scores_when_no_file(tmp_path, monkeypatch):
     monkeypatch.setattr(high_score_scene, "SCORES_FILE", str(tmp_path / "scores.dat"))
     scores = high_score_scene.load_scores()
-    assert [entry["score"] for entry in scores] == [15000, 10000, 8000, 6000, 4000]
-    assert all(entry["name"].strip() == "" for entry in scores)
+    assert [(entry["name"], entry["score"]) for entry in scores] == [
+        ("VAV", 15000), ("DES", 10000), ("RYS", 8000), ("KYL", 6000), ("CMI", 4000)]
 
 
 def test_saved_scores_replace_the_defaults(tmp_path, monkeypatch):

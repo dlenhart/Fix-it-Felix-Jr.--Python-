@@ -20,7 +20,7 @@ from scenes.game_over_scene import GameOverScene  # noqa: E402
 from entities.felix import FelixState  # noqa: E402
 from entities.ralph import RalphState  # noqa: E402
 from scenes.game_phases import (  # noqa: E402
-    LEVEL_END_PAUSE_TICKS, READY_PAUSE_TICKS, SECTION_SCROLL_SPEED,
+    READY_PAUSE_TICKS, SECTION_SCROLL_SPEED,
     LevelEndPhase, LevelStartPhase, PlayPhase, SectionClearPhase,
 )
 from scenes.game_scene import GameScene, start_level_from_environment  # noqa: E402
@@ -140,7 +140,7 @@ def test_last_section_goes_to_level_end_then_next_level_keeps_lives_and_score():
     assert (game.felix.score, game.felix.lives) == (1234, 7)
 
 
-def test_level_end_pauses_180_ticks_before_the_next_level():
+def test_level_end_starts_the_next_level_immediately():
     _, game = make_game()
     reach_play(game)
     for _ in range(game.building.section_count):
@@ -148,9 +148,6 @@ def test_level_end_pauses_180_ticks_before_the_next_level():
         tick_until(game, lambda: not isinstance(game.phase, PlayPhase))
         tick_until(game, lambda: isinstance(game.phase, (PlayPhase, LevelEndPhase)))
     assert isinstance(game.phase, LevelEndPhase)
-    for _ in range(LEVEL_END_PAUSE_TICKS - 1):
-        game.tick(MockInput())
-    assert game.level == 1
     game.tick(MockInput())
     assert game.level == 2
     assert isinstance(game.phase, LevelStartPhase)
@@ -172,21 +169,6 @@ def test_no_hits_or_scoring_during_level_start():
     hammer_for(game, 60)
     assert isinstance(game.phase, LevelStartPhase)
     assert door.is_broken
-    assert (game.felix.lives, game.felix.score) == (lives_before, score_before)
-
-
-def test_no_hits_during_level_end():
-    _, game = make_game()
-    reach_play(game)
-    for _ in range(game.building.section_count):
-        fix_section(game)
-        tick_until(game, lambda: not isinstance(game.phase, PlayPhase))
-        tick_until(game, lambda: isinstance(game.phase, (PlayPhase, LevelEndPhase)))
-    assert isinstance(game.phase, LevelEndPhase)
-    lives_before, score_before = game.felix.lives, game.felix.score
-    spawn_brick_on_felix(game)
-    hammer_for(game, 60)
-    assert isinstance(game.phase, LevelEndPhase)
     assert (game.felix.lives, game.felix.score) == (lives_before, score_before)
 
 
