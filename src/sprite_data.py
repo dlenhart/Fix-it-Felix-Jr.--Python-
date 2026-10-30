@@ -61,19 +61,7 @@ BIRD_FRAME_HOLD_TICKS = 20
 
 SPRITES = {
     # Building tiles
-    # Pure-brick region inside the building art, clear of its corner pillar
-    # (x<27) and ledge (y 48-54). 64x48 is a whole multiple of the brick
-    # pattern's 8x6 repeat, so it tiles seamlessly.
-    "wall_brick": [(28, 0, 64, 48)],
     "wall_section_lower": [(9, 172, 190, 20)],
-    "window_intact": [(829, 0, 39, 64)],
-    "window_cracked": [(421, 48, 39, 64)],
-    "window_broken": [(877, 0, 39, 64)],
-    "window_frame": [(228, 52, 40, 36)],
-    "shutter_left": [],       # no matching art found in atlas; unused by current game code (WINDOW_SPRITE_MAP doesn't reference shutters)
-    "shutter_right": [],      # same as above
-    "niceland_sign": [(421, 48, 39, 26)],
-    "ledge": [(7, 0, 10, 30)],
 
     # Felix animations — each list has multiple frames
     "felix_idle_right": [(68, 232, 12, 32)],

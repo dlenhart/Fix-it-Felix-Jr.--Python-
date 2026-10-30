@@ -15,14 +15,24 @@ INITIALS_LENGTH = 3           # Ghidra-confirmed: 3 chars
 LETTER_OPTIONS = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789."
 
 
+# FUN_0040a060 seeds the table with these scores; the exe's initials are blank [ASSUMED].
+DEFAULT_HIGH_SCORES = [15000, 10000, 8000, 6000, 4000]
+DEFAULT_INITIALS = "   "  # [ASSUMED]
+
+
+def default_scores():
+    """The table shown before anyone has played: the exe's scores with blank initials."""
+    return [{"name": DEFAULT_INITIALS, "score": score} for score in DEFAULT_HIGH_SCORES]
+
+
 def load_scores():
-    if os.path.exists(SCORES_FILE):
-        try:
-            with open(SCORES_FILE, "r") as f:
-                return json.load(f)
-        except (json.JSONDecodeError, IOError):
-            pass
-    return []
+    if not os.path.exists(SCORES_FILE):
+        return default_scores()
+    try:
+        with open(SCORES_FILE, "r") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return []
 
 
 def save_scores(scores):

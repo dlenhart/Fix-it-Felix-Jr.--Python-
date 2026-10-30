@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 READY_PAUSE_TICKS = 180  # [EXE] FUN_004086e0 ready countdown before play
 SECTION_SCROLL_SPEED = 2.0  # [EXE] FUN_00408810 camera px/tick on section clear
-LEVEL_END_HOLD_TICKS = 120  # [ASSUMED] placeholder hold until Task 11's roof sequence
+LEVEL_END_PAUSE_TICKS = 180  # [EXE] spec section 9: the next level follows a 180-tick pause
 DOOR_LOCAL_ROW = 0
 DOOR_COLUMN = 2
 SECTION_CLEAR_MESSAGE = "YOU FIXED IT!"  # [EXE string]
@@ -223,14 +223,17 @@ class SectionClearPhase(GamePhase):
 
 
 class LevelEndPhase(GamePhase):
-    """Placeholder level end (Task 11 adds the roof sequence): hold, then the next level."""
+    """Level end: "YOU FIXED IT!" for the exe's 180-tick pause, then the next level.
+
+    The roof sequence (medal, Ralph thrown off) is not decoded from the exe yet.
+    """
 
     def __init__(self) -> None:
         self.hold_ticks = 0
 
     def tick(self, game: GameScene) -> GamePhase | None:
         self.hold_ticks += 1
-        if self.hold_ticks < LEVEL_END_HOLD_TICKS:
+        if self.hold_ticks < LEVEL_END_PAUSE_TICKS:
             return None
         game.start_level(game.level + 1)
         # start_level already installed the next level's LevelStartPhase.

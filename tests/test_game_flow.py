@@ -20,7 +20,7 @@ from scenes.game_over_scene import GameOverScene  # noqa: E402
 from entities.felix import FelixState  # noqa: E402
 from entities.ralph import RalphState  # noqa: E402
 from scenes.game_phases import (  # noqa: E402
-    READY_PAUSE_TICKS, SECTION_SCROLL_SPEED,
+    LEVEL_END_PAUSE_TICKS, READY_PAUSE_TICKS, SECTION_SCROLL_SPEED,
     LevelEndPhase, LevelStartPhase, PlayPhase, SectionClearPhase,
 )
 from scenes.game_scene import GameScene, start_level_from_environment  # noqa: E402
@@ -138,6 +138,22 @@ def test_last_section_goes_to_level_end_then_next_level_keeps_lives_and_score():
     assert game.building.section_index == 0
     assert game.camera.scroll_y == 0
     assert (game.felix.score, game.felix.lives) == (1234, 7)
+
+
+def test_level_end_pauses_180_ticks_before_the_next_level():
+    _, game = make_game()
+    reach_play(game)
+    for _ in range(game.building.section_count):
+        fix_section(game)
+        tick_until(game, lambda: not isinstance(game.phase, PlayPhase))
+        tick_until(game, lambda: isinstance(game.phase, (PlayPhase, LevelEndPhase)))
+    assert isinstance(game.phase, LevelEndPhase)
+    for _ in range(LEVEL_END_PAUSE_TICKS - 1):
+        game.tick(MockInput())
+    assert game.level == 1
+    game.tick(MockInput())
+    assert game.level == 2
+    assert isinstance(game.phase, LevelStartPhase)
 
 
 def hammer_for(game, tick_count):
