@@ -11,6 +11,16 @@ from font_renderer import FontRenderer, scale_text_to_fit
 SCORES_FILE = os.path.join(PROJECT_ROOT, "scores.dat")
 MAX_SCORES = 5                # Ghidra-confirmed: 5 entries
 INITIALS_LENGTH = 3           # Ghidra-confirmed: 3 chars
+# [EXE] FUN_00408fc0 case 8 starts the entry on "A" (index 1, after the space), and
+# FUN_00407f50 puts each next slot back on index 1 when a letter is confirmed.
+FIRST_LETTER_INDEX = 1
+# [EXE] FUN_00408280 draws the entry's letters in font row 1 (red) and flashes the
+# current one to row 0 (white) while (frame counter & 0x1f) >= 0xf: 15 ticks red,
+# then 17 white.
+INITIALS_COLOR_ROW = 1
+CURRENT_LETTER_FLASH_COLOR_ROW = 0
+CURRENT_LETTER_FLASH_PERIOD_MASK = 0x1F
+CURRENT_LETTER_FLASH_START_TICK = 0xF
 # Ghidra-confirmed: 38 characters including space, A-Z, 0-9, period
 LETTER_OPTIONS = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789."
 
@@ -58,8 +68,9 @@ class HighScoreScene(Scene):
         self._is_entering = self._qualifies()
         self._initials = ["A", "A", "A"]
         self._cursor = 0
-        self._letter_index = 0
+        self._letter_index = FIRST_LETTER_INDEX
         self._display_ticks = 0
+        self._flash_ticks = 0
 
     def _qualifies(self):
         if self.final_score <= 0:
@@ -77,6 +88,7 @@ class HighScoreScene(Scene):
     def tick(self, input_handler):
         """One game tick (1/60s). All game logic is tick-counted."""
         if self._is_entering:
+            self._flash_ticks += 1
             if input_handler.is_just_pressed(Action.UP):
                 self._letter_index = (self._letter_index - 1) % len(LETTER_OPTIONS)
                 self._initials[self._cursor] = LETTER_OPTIONS[self._letter_index]
@@ -85,9 +97,11 @@ class HighScoreScene(Scene):
                 self._letter_index = (self._letter_index + 1) % len(LETTER_OPTIONS)
                 self._initials[self._cursor] = LETTER_OPTIONS[self._letter_index]
                 self.sound.play_sfx("menu_select")
-            elif input_handler.is_just_pressed(Action.JUMP):
+            # [USER] ENTER confirms as well as SPACE.
+            elif (input_handler.is_just_pressed(Action.JUMP) or
+                    input_handler.is_just_pressed(Action.START)):
                 self._cursor += 1
-                self._letter_index = 0
+                self._letter_index = FIRST_LETTER_INDEX
                 self.sound.play_sfx("menu_confirm")
                 if self._cursor >= INITIALS_LENGTH:
                     self._save_score()
@@ -104,6 +118,25 @@ class HighScoreScene(Scene):
             if self._display_ticks >= HS_DISPLAY_TIMER_TICKS:
                 from scenes.title_scene import TitleScene
                 self.manager.replace(TitleScene(self.manager))
+
+    def letter_color_row(self, slot):
+        """Font row for an initials slot: the current one flashes, the others stay red."""
+        if slot != self._cursor:
+            return INITIALS_COLOR_ROW
+        if (self._flash_ticks & CURRENT_LETTER_FLASH_PERIOD_MASK) < CURRENT_LETTER_FLASH_START_TICK:
+            return INITIALS_COLOR_ROW
+        return CURRENT_LETTER_FLASH_COLOR_ROW
+
+    def _render_initials(self):
+        letters = [self.font.render_text(letter, color_row=self.letter_color_row(slot))
+                   for slot, letter in enumerate(self._initials)]
+        letter_width, letter_height = letters[0].get_size()
+        # One letter-wide gap between slots, as the old " ".join() spacing had.
+        surface = pygame.Surface((letter_width * (2 * len(letters) - 1), letter_height),
+                                 pygame.SRCALPHA)
+        for slot, letter in enumerate(letters):
+            surface.blit(letter, (slot * 2 * letter_width, 0))
+        return surface
 
     def _save_score(self):
         name = "".join(self._initials)
@@ -126,8 +159,7 @@ class HighScoreScene(Scene):
             rect = p_scaled.get_rect(center=(GAME_WIDTH // 2, 90))
             screen.blit(p_scaled, rect)
 
-            initials_str = " ".join(self._initials)
-            initials = self.font.render_text(initials_str, color_row=0)
+            initials = self._render_initials()
             i_scaled = scale_text_to_fit(initials, GAME_WIDTH - 16, preferred_scale=3.0)
             rect = i_scaled.get_rect(center=(GAME_WIDTH // 2, 130))
             screen.blit(i_scaled, rect)

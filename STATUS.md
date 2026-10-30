@@ -21,7 +21,24 @@ The checkpoint's fixes (uncommitted until the user commits):
 
 **Dev shortcut (kept on purpose):** start on any level with `FELIX_START_LEVEL=5 python3 src/main.py` (`start_level_from_environment` in `src/scenes/game_scene.py`). A non-integer or a level below 1 raises at game start.
 
-**Next:** Task 11 (roof/medal ending, a user checkpoint) → Task 12 (pre-refactor test safety net, coverage ≥ 90%) → final whole-branch review.
+### Task 11: done except the roof ending (2026-10-30, commits `45db5e3`, `33cf1a5`)
+
+- Default high scores from the exe (`FUN_0040a060`): VAV 15000, DES 10000, RYS 8000, KYL 6000, CMI 4000, used when `scores.dat` is missing.
+- The level end starts the next level at once; its [EXE] 180-tick pause is the next level's ready pause (`FUN_004086e0`). There is no roof ending yet.
+- Dead sprite entries removed (`wall_brick`, `window_*`, `shutter_*`, `niceland_sign`, `ledge`).
+- **Roof ending: needs an exe decode first, no guessed values.** Leads: `FUN_004089b0` → `FUN_004047f0`, `FUN_00404ce0` (flag `DAT_00424330`); `FUN_00402b94`, `FUN_00402cd8` (pass 4 open item 5); frames 24–29 (Felix with medal), 180–185 (medals), Ralph thrown off in 74–127. Full list: `.superpowers/sdd/2026-10-21-gameplay-rebuild/task-11-report.md`.
+
+**Your level 1 → 2 playtest (Task 11 checkpoint), `python3 src/main.py`:**
+- [x] Finishing level 1's last section goes straight to level 2 (no roof ending or "YOU FIXED IT!" yet; expected until the decode).
+- [x] Level 2 opens with the usual 3 s ready pause, with the same score and lives you ended level 1 on (2026-10-30: 2300 points, ×6 after 4 deaths from 10).
+- [x] With `scores.dat` moved aside, the high-score table shows VAV 15000, DES 10000, RYS 8000, KYL 6000, CMI 4000 (2026-10-30).
+
+**Initials entry fix (2026-10-30, uncommitted, 171 tests pass):** from the exe (`FUN_00408fc0` case 8, `FUN_00407f50` input, `FUN_00408280` draw): each slot starts on "A" and the next slot goes back to "A" after a confirm (the old code started on the space, so UP gave "."); the letters are red and the current one flashes red/white (15 ticks red, 17 white). [USER] ENTER confirms as well as SPACE. Not adopted (user's choice): hold-to-repeat every 20 ticks, the 30 s TIME LEFT limit, typing inside the table row.
+- [x] Get a score over 4000, then on the initials screen: the first letter flashes; DOWN gives B, UP from A gives a blank; SPACE or ENTER moves the flash to the next letter, which starts on A; the third confirm saves.
+
+- **Later (user, 2026-10-30):** "I'd like to be given more time to update it" — revisit the initials entry (check against the exe; it has a 30 s TIME LEFT limit and hold-to-repeat that we didn't adopt).
+
+**Next:** roof-ending exe decode → Task 12 (pre-refactor test safety net, coverage ≥ 90%) → final whole-branch review.
 
 ### Earlier checkpoints (all passed)
 - **Task 8 (2026-10-21/22):** hit sequence (knocked down, falls, ~1 s gone, respawn, life lost at the respawn), Ralph and bricks freeze during it, last life → death animation → GAME OVER (the last head leaves the HUD at the fatal hit), section clear → Ralph climbs → scroll, level end → next level with score and lives kept.
