@@ -21,6 +21,7 @@ from level_config import get_level_config
 from scenes.game_phases import GamePhase, LevelStartPhase
 
 PALETTE_COUNT = 5
+GAMEPLAY_MUSIC = 0xE  # [EXE] FUN_00408fc0 case 3: FUN_0040f4a0(1), ESI 0xe
 RALPH_START_X = 120  # Ruling 12: a fresh Ralph per level starts at the patrol center
 HUD_BAND_HEIGHT = 24  # [ASSUMED] HUD layout (spec section 10)
 HUD_SCORE_POSITION = (4, 4)  # [ASSUMED]
@@ -68,6 +69,15 @@ class GameScene(Scene):
         self.input_handler = self._null_input
         self._is_paused = False
         self._has_game_ended = False
+        # [EXE] DAT_0042427c: counts every game tick; the score popup and the
+        # roof's "YOU FIXED IT!" colour cycle read its low bits.
+        self.frame_counter = 0
+        # [EXE] DAT_004242a6: 'N' was pressed; the game ends after the next roof.
+        # TODO: the exe keeps this flag (and roof_footstep_counter) for the whole
+        # program run, so a press on the title screen also counts; ours is per game.
+        self.is_end_game_requested = False
+        # [EXE] DAT_0041a238: the roof march's footstep counter is never reset.
+        self.roof_footstep_counter = 0
 
     @property
     def palette(self) -> int:
@@ -75,7 +85,15 @@ class GameScene(Scene):
 
     def on_enter(self):
         self.start_level(self.level)
-        self.sound.play_music("gameplay_a")
+
+    def play_gameplay_music(self) -> None:
+        """Start the in-level music; a no-op while it is already the current music.
+
+        [EXE] Entering state 3 (FUN_00408fc0 case 3) calls FUN_0040f4a0(1) with
+        ESI 0xe: sound 14, looping. Nothing plays it before that, so the climb-in
+        and the ready pause keep whatever music was already going.
+        """
+        self.sound.play_music_index(GAMEPLAY_MUSIC, is_looping=True)
 
     def start_level(self, level: int) -> None:
         """Build a fresh world for the level; Felix keeps his score and lives."""
@@ -101,8 +119,25 @@ class GameScene(Scene):
         from scenes.game_over_scene import GameOverScene
         self.manager.replace(GameOverScene(self.manager, self.felix.score))
 
+    def finish_game_end_screen(self) -> None:
+        """After the "11022012" screen: the high-score flow, without the game-over screen.
+
+        [USER] Score handling as after a game over: initials entry when the score
+        qualifies, then the table, then the title. The exe skips initials entry
+        here (FUN_0040a0f0 resets straight to attract) and resets the in-memory
+        table (FUN_0040a060); scores.dat is never wiped (Ruling 28).
+        """
+        if self._has_game_ended:
+            return
+        self._has_game_ended = True
+        from scenes.high_score_scene import HighScoreScene
+        self.manager.replace(HighScoreScene(self.manager, self.felix.score))
+
     def tick(self, input_handler):
         """One game tick (1/60s). All game logic is tick-counted."""
+        # Checked before the pause so a press is never lost (FUN_0040af70 latches it every tick).
+        if input_handler.is_just_pressed(Action.END_GAME):
+            self.is_end_game_requested = True
         self._update_pause(input_handler)
         if self._is_paused:
             return
@@ -110,6 +145,7 @@ class GameScene(Scene):
         self.input_handler = input_handler
         self.camera.snapshot()
         next_phase = self.phase.tick(self)
+        self.frame_counter += 1
         if next_phase is not None:
             self.phase = next_phase
 
@@ -144,6 +180,16 @@ class GameScene(Scene):
             alpha = 1.0
 
         screen.fill(BLACK)
+        self.phase.draw_world(self, screen, alpha)
+        self._draw_hud(screen)
+        self.phase.draw_overlay(self, screen)
+
+        if self._is_paused:
+            self._draw_pause_overlay(screen)
+
+    def draw_play_world(self, screen, alpha):
+        """Draw the building and every play entity, as the play phases show them."""
+        self.building.draw_street(screen, self.sprites, self.camera, self.palette)
         # TODO: Building.draw takes no alpha, so during the section scroll the
         # building sits at the latest scroll while entities interpolate.
         self.building.draw(screen, self.sprites, self.camera, self.palette)
@@ -153,12 +199,6 @@ class GameScene(Scene):
         self.hazards.draw(screen, self.sprites, self.building, self.camera, self.palette, alpha)
         self.ralph.draw(screen, self.sprites, self.camera, self.palette, alpha)
         self.felix.draw(screen, self.sprites, self.camera, self.palette, alpha)
-
-        self._draw_hud(screen)
-        self.phase.draw_overlay(self, screen)
-
-        if self._is_paused:
-            self._draw_pause_overlay(screen)
 
     def _draw_pause_overlay(self, screen):
         dim = pygame.Surface((GAME_WIDTH, GAME_HEIGHT), pygame.SRCALPHA)

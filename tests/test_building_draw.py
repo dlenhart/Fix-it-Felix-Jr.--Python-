@@ -86,3 +86,36 @@ def test_nicelander_bottom_row_is_two_pixels_above_the_sill():
         bounds = drawn_bounds(
             lambda screen: nicelander.draw(screen, SpriteSheet(), building, Camera(), 0))
         assert bounds.bottom - 1 == node_y
+
+
+class RecordingScreen(pygame.Surface):
+    """A 240x320 screen that logs where each blit lands."""
+
+    def __init__(self):
+        super().__init__((240, 320))
+        self.blit_positions = []
+
+    def blit(self, source, destination, area=None, *args):
+        self.blit_positions.append((destination, area))
+        return super().blit(source, destination, area, *args)
+
+
+def test_street_tiles_piece_one_on_the_exe_runs():
+    # FUN_00406050: piece 1 (16x16, 2 tiles) at x = cam x + (i - 0x1c) * 8 and cam x + (i + 0x1a) * 8
+    # for i = 0, 2, ..., 0x1e, at y = cam y + 0x130.
+    camera = Camera()
+    camera.cut_to(-160, 0)
+    screen = RecordingScreen()
+    Building(1, random.Random(0)).draw_street(screen, SpriteSheet(), camera, 0)
+    expected_xs = {-160 + (i + offset) * 8 for i in range(0, 0x1F, 2) for offset in (-0x1C, 0x1A)}
+    assert {destination for destination, _ in screen.blit_positions} == {(x, 0x130) for x in expected_xs}
+    assert len(screen.blit_positions) == 32
+    assert all(area == pygame.Rect(0, 0, 16, 16) for _, area in screen.blit_positions)
+
+
+def test_street_is_skipped_once_scrolled_below_the_screen():
+    camera = Camera()
+    camera.cut_to(0, 0x10)  # y 0x130 + 0x10 = 0x140, the exe's cut-off
+    screen = RecordingScreen()
+    Building(1, random.Random(0)).draw_street(screen, SpriteSheet(), camera, 0)
+    assert screen.blit_positions == []

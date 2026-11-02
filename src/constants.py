@@ -25,7 +25,9 @@ def seconds_to_ticks(seconds):
 
 
 # Ghidra-confirmed constants
-INITIAL_LIVES = 10
+# [USER] 5 lives (the current one included). The exe starts with 2 spare lives
+# (0x00407676), i.e. 3 in our count; the user chose 5 (2026-11-02).
+INITIAL_LIVES = 5
 GRID_COLS = 5
 HIGH_SCORE_ENTRIES = 5
 HIGH_SCORE_INITIALS = 3

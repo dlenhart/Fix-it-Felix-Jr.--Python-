@@ -68,7 +68,8 @@ class Nicelander:
         frame = sprites.get_frame(frame_id, palette)
         node_x, node_y = building.nicelander_node(self.cell)
         origin_x, origin_y = NICELANDER_ORIGIN
-        screen.blit(frame, (node_x - origin_x, camera.to_screen_y(node_y) - origin_y))
+        screen.blit(frame, (camera.to_screen_x(node_x - origin_x),
+                            camera.to_screen_y(node_y) - origin_y))
         # FUN_00407190 links the pie after the Nicelander at the same depth: drawn in front.
         if self.pie is not None:
             self.pie.draw(screen, sprites, building, camera, palette)

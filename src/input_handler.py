@@ -11,6 +11,9 @@ class Action(enum.Enum):
     START = "start"
     PAUSE = "pause"
     QUIT = "quit"
+    # [EXE] key table: VK 0x4E ('N') sets input bit 0x400; FUN_0040af70 latches it
+    # into DAT_004242a6, which ends the game after the next roof sequence.
+    END_GAME = "end_game"
 
 
 KEYBOARD_MAP = {
@@ -23,6 +26,7 @@ KEYBOARD_MAP = {
     pygame.K_RETURN: Action.START,
     pygame.K_p: Action.PAUSE,
     pygame.K_ESCAPE: Action.QUIT,
+    pygame.K_n: Action.END_GAME,
 }
 
 GAMEPAD_BUTTON_MAP = {

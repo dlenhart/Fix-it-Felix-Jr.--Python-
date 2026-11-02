@@ -35,4 +35,5 @@ class Pie:
         # bottom rows line up and the Nicelander holds the pie.
         node_x, node_y = building.nicelander_node(self.cell)
         origin_x, origin_y = PIE_ORIGIN
-        screen.blit(frame, (node_x - origin_x, camera.to_screen_y(node_y) - origin_y))
+        screen.blit(frame, (camera.to_screen_x(node_x - origin_x),
+                            camera.to_screen_y(node_y) - origin_y))

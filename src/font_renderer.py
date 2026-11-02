@@ -1,5 +1,9 @@
 import pygame
-from sprite_data import FONT_ROWS
+from sprite_data import FONT_GLYPH_SIZE, FONT_ROWS, font_row_for_exe_colour
+
+# [EXE] FUN_0040f140 / FUN_0040f350 draw characters 0x20..0x5d; glyph x is
+# (char - 0x20) * 8 from the font origin.
+FIRST_GLYPH_CODE = 0x20
 
 
 class FontRenderer:
@@ -37,6 +41,27 @@ class FontRenderer:
             if glyph:
                 surface.blit(glyph, (i * cw, 0))
         return surface
+
+    def render_opaque_glyph_cell(self, char, exe_colour):
+        """One 8x8 text-grid cell as FUN_0040f350 writes it: the glyph's atlas pixels, all opaque.
+
+        FUN_0040f350 ORs 0xff000000 into every copied pixel, so the glyph's
+        transparent background shows as whatever RGB the atlas stores there.
+        """
+        cache_key = ("opaque", char, exe_colour)
+        if cache_key in self._char_cache:
+            return self._char_cache[cache_key]
+        row_info = FONT_ROWS[font_row_for_exe_colour(exe_colour)]
+        glyph_x = (ord(char) - FIRST_GLYPH_CODE) * FONT_GLYPH_SIZE
+        atlas = self._sprite_sheet._get_atlas(self._palette)
+        cell = atlas.subsurface(
+            pygame.Rect(glyph_x, row_info["y"], FONT_GLYPH_SIZE, FONT_GLYPH_SIZE)).copy()
+        for y in range(FONT_GLYPH_SIZE):
+            for x in range(FONT_GLYPH_SIZE):
+                red, green, blue, _ = cell.get_at((x, y))
+                cell.set_at((x, y), (red, green, blue, 255))
+        self._char_cache[cache_key] = cell
+        return cell
 
 
 def scale_text_to_fit(surface, max_width, preferred_scale=2.0):

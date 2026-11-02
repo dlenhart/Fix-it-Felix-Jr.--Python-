@@ -24,6 +24,7 @@ from scenes.game_phases import (  # noqa: E402
     LevelEndPhase, LevelStartPhase, PlayPhase, SectionClearPhase,
 )
 from scenes.game_scene import GameScene, start_level_from_environment  # noqa: E402
+from scenes.roof_phases import GameEndPhase, RoofPhase  # noqa: E402
 
 TICK_LIMIT = 5000
 
@@ -122,6 +123,43 @@ def test_fixing_all_windows_clears_section_scrolls_and_resumes():
     assert game.building.broken_count > 0
 
 
+class RecordingSound:
+    """Stands in for SoundManager and logs every call in order."""
+
+    def __init__(self):
+        self.calls = []
+
+    def __getattr__(self, name):
+        def record(*args, **kwargs):
+            self.calls.append((name, *args, *kwargs.values()))
+        return record
+
+    def music(self):
+        return [call[1:] for call in self.calls if call[0] == "play_music_index"]
+
+
+def test_gameplay_music_is_exe_sound_14_and_starts_with_play():
+    _, game = make_game()
+    game.sound = RecordingSound()
+    tick_until(game, lambda: isinstance(game.phase, LevelStartPhase) and game.phase.is_ready_countdown)
+    assert game.sound.music() == []  # nothing starts it during the climb-in or ready pause
+    reach_play(game)
+    assert game.sound.music() == [(0xE, True)]
+
+
+def test_section_clear_jingle_replaces_the_music_until_play_resumes():
+    _, game = make_game()
+    game.sound = RecordingSound()
+    reach_play(game)
+    fix_section(game)
+    game.tick(MockInput())
+    assert isinstance(game.phase, SectionClearPhase)
+    game.tick(MockInput())  # the phase starts the clear on its first tick
+    assert game.sound.music() == [(0xE, True), (0x16, False)]
+    reach_play(game)
+    assert game.sound.music() == [(0xE, True), (0x16, False), (0xE, True)]
+
+
 def test_last_section_goes_to_level_end_then_next_level_keeps_lives_and_score():
     _, game = make_game()
     reach_play(game)
@@ -140,17 +178,18 @@ def test_last_section_goes_to_level_end_then_next_level_keeps_lives_and_score():
     assert (game.felix.score, game.felix.lives) == (1234, 7)
 
 
-def test_level_end_starts_the_next_level_immediately():
+def test_last_section_skips_the_section_clear_and_waits_for_the_roof():
     _, game = make_game()
     reach_play(game)
-    for _ in range(game.building.section_count):
+    for _ in range(game.building.section_count - 1):
         fix_section(game)
         tick_until(game, lambda: not isinstance(game.phase, PlayPhase))
-        tick_until(game, lambda: isinstance(game.phase, (PlayPhase, LevelEndPhase)))
-    assert isinstance(game.phase, LevelEndPhase)
+        tick_until(game, lambda: isinstance(game.phase, PlayPhase))
+    fix_section(game)
     game.tick(MockInput())
-    assert game.level == 2
-    assert isinstance(game.phase, LevelStartPhase)
+    assert isinstance(game.phase, LevelEndPhase)
+    tick_until(game, lambda: isinstance(game.phase, RoofPhase))
+    assert game.level == 1
 
 
 def hammer_for(game, tick_count):
@@ -359,6 +398,7 @@ def test_draw_renders_every_phase():
     _, game = make_game()
     surface = pygame.Surface((GAME_WIDTH, GAME_HEIGHT))
     game.felix.lives = 12
+    game.is_end_game_requested = True
     seen_phases = set()
     game.draw(surface, alpha=0.5)
     reach_play(game)
@@ -368,9 +408,12 @@ def test_draw_renders_every_phase():
             game.tick(MockInput())
             game.draw(surface, alpha=0.5)
             seen_phases.add(type(game.phase))
-            if isinstance(game.phase, (PlayPhase, LevelEndPhase)):
+            if isinstance(game.phase, (PlayPhase, GameEndPhase)):
                 break
-    assert {SectionClearPhase, PlayPhase, LevelEndPhase} <= seen_phases
+    for _ in range(10):
+        game.tick(MockInput())
+        game.draw(surface, alpha=0.5)
+    assert {SectionClearPhase, PlayPhase, LevelEndPhase, RoofPhase, GameEndPhase} <= seen_phases
 
 
 def test_start_level_defaults_to_one(monkeypatch):

@@ -201,6 +201,6 @@ class Ralph:
         """Draw centered on x and bottom-aligned on y."""
         frame = (self._anim_ticks // SPRITE_FRAME_HOLD_TICKS) % RALPH_SPRITE_FRAME_COUNT
         sprite = sprites.get_sprite(self._sprite_name(), frame, palette)
-        left = round(self.x - sprite.get_width() / 2)
+        left = camera.to_screen_x(round(self.x - sprite.get_width() / 2), alpha)
         top = camera.to_screen_y(self.y, alpha) - sprite.get_height()
         screen.blit(sprite, (left, top))

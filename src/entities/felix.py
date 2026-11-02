@@ -170,6 +170,20 @@ class Felix:
             sound.play_sfx("death")
         return True
 
+    def cancel_hit_sequence(self):
+        """The roof ending cut a hit short: no life is lost.
+
+        [EXE] State 6 stops ticking Felix (FUN_0040ccf0), so FUN_0040c1a0 never
+        reaches the respawn that takes the life, and the level advance
+        (FUN_004089b0 -> FUN_0040cf80) resets his handler. The spare-life count
+        DAT_00421804 is untouched, so a final hit leaves him on his last life
+        (our lives 1; hit() showed 0 for the death sequence).
+        """
+        if self.state in (FelixState.FINAL_HIT_ANIM, FelixState.FINAL_HIT_HOLD):
+            self.lives = 1
+        if self.is_in_hit_sequence:
+            self.state = FelixState.IDLE
+
     def activate_invulnerability(self, sound=None):
         self._invulnerable_ticks_remaining = INVULNERABLE_TICKS
         if sound:
@@ -487,14 +501,16 @@ class Felix:
             left = center_x - FELIX_HEAD_CENTER_X[sprite_name]
         else:
             left = center_x - sprite.get_width() / 2
-        screen.blit(sprite, (round(left), _sprite_top(camera, feet_y, alpha, sprite)))
+        screen.blit(sprite, (camera.to_screen_x(round(left), alpha),
+                             _sprite_top(camera, feet_y, alpha, sprite)))
 
     def _draw_hit_frame(self, screen, sprites, camera, palette, center_x, feet_y, alpha):
         sprite = sprites.get_frame(self._hit_frame_id(), palette)
         # The hit frames sit off-center in their atlas cells (frame 64's body is
         # 5px right of center), so center the visible art to keep Felix planted.
         left = center_x - sprite.get_bounding_rect().centerx
-        screen.blit(sprite, (round(left), _sprite_top(camera, feet_y, alpha, sprite)))
+        screen.blit(sprite, (camera.to_screen_x(round(left), alpha),
+                             _sprite_top(camera, feet_y, alpha, sprite)))
 
 
 def _sprite_top(camera, feet_y, alpha, sprite):

@@ -62,7 +62,7 @@ class Brick:
             return
         x = self._previous_x + (self.x - self._previous_x) * alpha
         y = self._previous_y + (self.y - self._previous_y) * alpha
-        left = round(x) - BRICK_WIDTH // 2
+        left = camera.to_screen_x(round(x) - BRICK_WIDTH // 2, alpha)
         bottom = camera.to_screen_y(y, alpha)
         lower_frame_id, upper_frame_id = BRICK_FRAMES
         lower = sprites.get_frame(lower_frame_id, palette)

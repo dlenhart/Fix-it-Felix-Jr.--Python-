@@ -27,6 +27,15 @@ from level_config import (
 from sprite_data import PANE_FRAME_INTACT
 from sprite_sheet import SpriteSheet
 
+# [EXE] FUN_00406050: building piece 1 tiled along the street, two runs per step.
+STREET_PIECE = 1
+STREET_TILE_SIZE = 8
+STREET_LAST_STEP = 0x1E  # the step loop runs while the tile index is <= 0x1e
+STREET_LEFT_RUN_TILE_OFFSET = -0x1C
+STREET_RIGHT_RUN_TILE_OFFSET = 0x1A
+STREET_STRIP_Y = 0x130  # screen y = camera y + 0x130
+STREET_CLIP_TOP_Y = 0x18  # rows above y 0x18 are cropped off (the HUD band)
+
 PANE_INTACT = 0
 PANE_SMASHED = 5  # [EXE] FUN_00409840: pane state 5 is fully smashed
 
@@ -304,9 +313,31 @@ class Building:
             screen_top = screen_bottom - floor_surface.get_height()
             if screen_bottom <= 0 or screen_top >= screen_height:
                 continue
-            screen.blit(floor_surface, (FACADE_X, screen_top))
+            screen.blit(floor_surface, (camera.to_screen_x(FACADE_X), screen_top))
             for cell in floor.cells:
                 self._draw_cell(screen, sprites, camera, palette, floor, cell)
+
+    def draw_street(
+        self,
+        screen: pygame.Surface,
+        sprites: SpriteSheet,
+        camera: Camera,
+        palette: int,
+    ) -> None:
+        """Tile the street strip as FUN_00406050 does; drawn before the building."""
+        street = sprites.get_piece(STREET_PIECE, palette)
+        screen_y = camera.to_screen_y(STREET_STRIP_Y)
+        if screen_y >= screen.get_height():
+            return
+        crop_top = max(0, STREET_CLIP_TOP_Y - screen_y)
+        if crop_top >= street.get_height():
+            return
+        visible = pygame.Rect(0, crop_top, street.get_width(), street.get_height() - crop_top)
+        step_tiles = street.get_width() // STREET_TILE_SIZE
+        for tile in range(0, STREET_LAST_STEP + 1, step_tiles):
+            for run_offset in (STREET_LEFT_RUN_TILE_OFFSET, STREET_RIGHT_RUN_TILE_OFFSET):
+                world_x = (tile + run_offset) * STREET_TILE_SIZE
+                screen.blit(street, (camera.to_screen_x(world_x), screen_y + crop_top), visible)
 
     def _draw_cell(
         self,
@@ -320,10 +351,10 @@ class Building:
         piece = sprites.get_piece(self._cell_piece_id(cell), palette)
         piece_bottom = camera.to_screen_y(floor.bottom_y) - self._piece_bottom_inset_y(floor, cell)
         piece_top = piece_bottom - piece.get_height()
-        screen.blit(piece, (cell.x, piece_top))
+        screen.blit(piece, (camera.to_screen_x(cell.x), piece_top))
         if cell.kind not in PANE_WINDOW_KINDS:
             return
-        pane_x = cell.x + PANE_OFFSET_X
+        pane_x = camera.to_screen_x(cell.x + PANE_OFFSET_X)
         for offset_y, state in (
             (PANE_TOP_OFFSET_Y, cell.top_pane),
             (PANE_BOTTOM_OFFSET_Y, cell.bottom_pane),
@@ -391,6 +422,24 @@ class Building:
     def ledge_y(self, section_index: int | None = None) -> int:
         """World y of the top of the section's top floor."""
         return self.section_floors(section_index)[-1].top_y
+
+    @property
+    def roof_top_y(self) -> int:
+        """World y of the top of the roof art, the exe's roofY (DAT_0042431c).
+
+        [EXE] FUN_00404870 sets roofY = (top floor +0x2cc) * 8. +0x2cc is the
+        floor's top tile row (FUN_00405550: bottom row - height), and the top
+        floor is the roof, whose height FUN_00405550 case 4 sets to piece 9's
+        height (DAT_004183aa = 20 rows), not our 56 px layout row. Our floors
+        sit at the exe's own world y (FUN_00409610 starts at row 0x28 = y 320 =
+        STREET_Y and stacks the same heights), so roofY is the roof floor's
+        bottom minus the roof art's height.
+        """
+        roof = self.floors[-1]
+        if roof.floor_type != FloorType.ROOF:
+            raise RuntimeError(f"top floor is {roof.floor_type!r}, not the roof")
+        roof_art_height = BUILDING_PIECES[FLOOR_PIECE[FloorType.ROOF]][3]
+        return roof.bottom_y - roof_art_height
 
     def scroll_target(self, section_index: int) -> int:
         """Camera scroll that brings the section to the screen: heights of floors below it."""

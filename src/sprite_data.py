@@ -121,15 +121,27 @@ FELIX_HEAD_CENTER_X = {
     "felix_strike_left": 27,
 }
 
-# Font definition — 4 color rows of bitmap characters
-# Each row starts at a y-offset, characters are 8px wide, 8px tall
-# Character order matches ASCII from '!' (0x21) onward
+# Font definition. [EXE] FUN_0040f530 sets the font origin from building piece 22,
+# (0, 121, 64, 7) in cells: atlas (0, 968), 7 colour rows of 8x8 glyphs. Glyph
+# x = (char - 0x20) * 8, so '!' starts at x 8. FUN_0040f140 / FUN_0040f1d0 /
+# FUN_0040f350 read exe colour c from atlas y 968 + (6 - c) * 8: our row 0
+# (white) is exe colour 6, row 1 (red) colour 5, down to row 6 (dim blue)
+# colour 0. Exe colour 7 (roof "YOU FIXED IT!" flash) reads row -1, y 960,
+# which is blank for the font's glyph columns.
+FONT_ORIGIN_Y = 968
+FONT_GLYPH_SIZE = 8
+EXE_FONT_TOP_COLOUR = 6
 FONT_ROWS = {
-    0: {"y": 968, "char_width": 8, "char_height": 8, "start_x": 8},
-    1: {"y": 976, "char_width": 8, "char_height": 8, "start_x": 8},
-    2: {"y": 984, "char_width": 8, "char_height": 8, "start_x": 8},
-    3: {"y": 992, "char_width": 8, "char_height": 8, "start_x": 8},
+    row: {"y": FONT_ORIGIN_Y + row * FONT_GLYPH_SIZE, "char_width": FONT_GLYPH_SIZE,
+          "char_height": FONT_GLYPH_SIZE, "start_x": FONT_GLYPH_SIZE}
+    for row in range(-1, EXE_FONT_TOP_COLOUR + 1)
 }
+
+
+def font_row_for_exe_colour(exe_colour: int) -> int:
+    """Our FONT_ROWS key for an exe text colour (FUN_0040f140's EBX)."""
+    return EXE_FONT_TOP_COLOUR - exe_colour
+
 
 # Hammer effect sprites (from hammer0-3.png)
 HAMMER_SPRITES = {

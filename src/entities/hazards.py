@@ -135,7 +135,7 @@ class Bird:
                                   palette)
         has_wrapped = abs(self.x - self._previous_x) > 1
         x = self.x if has_wrapped else self._previous_x + (self.x - self._previous_x) * alpha
-        screen.blit(frame, (round(x), camera.to_screen_y(self.rect().top)))
+        screen.blit(frame, (camera.to_screen_x(round(x)), camera.to_screen_y(self.rect().top)))
 
 
 class DropHazard:
@@ -186,7 +186,8 @@ class DropHazard:
         y = self._previous_y + (self.y - self._previous_y) * alpha
         frame = sprites.get_frame(DROP_HAZARD_FRAME, palette)
         origin_x, origin_y = DROP_HAZARD_ORIGIN
-        screen.blit(frame, (round(self.x) - origin_x, camera.to_screen_y(y, alpha) - origin_y))
+        screen.blit(frame, (camera.to_screen_x(round(self.x) - origin_x, alpha),
+                            camera.to_screen_y(y, alpha) - origin_y))
 
 
 def _make_drop_hazard(building: Building, floor: Floor, gap_index: int,
@@ -229,6 +230,10 @@ class HazardField:
         """Section clear: birds and drop-hazards go. Obstacle flags are the caller's to clear."""
         self._birds.clear()
         self._drop_hazards.clear()
+
+    def clear_birds(self) -> None:
+        """Last section clear: FUN_00406b30 frees the active section's birds; drop-hazards stay."""
+        self._birds.clear()
 
     def reset_birds(self) -> None:
         """Send every bird back to its entry edge; called when Felix respawns."""
@@ -337,4 +342,4 @@ class HazardField:
                 if not cell.has_sill_obstacle:
                     continue
                 rect = sill_obstacle_rect(building, cell)
-                screen.blit(frame, (rect.x, camera.to_screen_y(rect.y)))
+                screen.blit(frame, (camera.to_screen_x(rect.x), camera.to_screen_y(rect.y)))

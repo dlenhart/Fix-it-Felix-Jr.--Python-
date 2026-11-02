@@ -18,3 +18,19 @@ def test_to_screen_y_interpolates_between_ticks():
     camera.scroll_toward(10, 10)
     assert camera.to_screen_y(100, alpha=0.5) == 105
     assert camera.to_screen_y(100) == 110
+
+
+def test_to_screen_x_adds_the_horizontal_scroll_and_interpolates():
+    camera = Camera()
+    camera.snapshot()
+    camera.scroll_x = -6
+    assert camera.to_screen_x(100) == 94
+    assert camera.to_screen_x(100, alpha=0.5) == 97
+
+
+def test_cut_to_jumps_without_interpolation():
+    camera = Camera()
+    camera.snapshot()
+    camera.cut_to(-160, 40)
+    assert camera.to_screen_x(304, alpha=0.0) == 144
+    assert camera.to_screen_y(0, alpha=0.0) == 40
