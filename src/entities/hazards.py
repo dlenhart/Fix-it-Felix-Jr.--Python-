@@ -280,7 +280,10 @@ class HazardField:
         return floors
 
     def is_threatening(self, hitbox: pygame.Rect) -> bool:
-        """True if a drop-hazard is falling toward the hitbox or already sits on it.
+        """True if a non-blinking drop-hazard overlaps the hitbox horizontally and will reach it.
+
+        [ASSUMED] Counting drop-hazards in the respawn check is neither exe nor user
+        ruling (Ruling 21).
 
         Birds are not counted: they move sideways and wrap, so no spot is safe from them.
         """

@@ -181,7 +181,7 @@ def test_no_hits_or_scoring_during_the_roof():
     broken_cell.top_pane = 3
     hitbox = game.felix.hitbox()
     game.bricks.spawn(hitbox.centerx, hitbox.bottom - 4)
-    brick_before = [(brick.x, brick.y) for brick in game.bricks._bricks]
+    brick_before = [(brick.x, brick.y) for brick in game.bricks.bricks]
     felix_before = game.felix.world_pos()
     while True:
         game.tick(MockInput([Action.JUMP, Action.LEFT]))
@@ -189,7 +189,7 @@ def test_no_hits_or_scoring_during_the_roof():
             break
         # Neither Felix nor the bricks tick: a brick on Felix would otherwise hit him,
         # and hammering would fix the broken window and score.
-        assert [(brick.x, brick.y) for brick in game.bricks._bricks] == brick_before
+        assert [(brick.x, brick.y) for brick in game.bricks.bricks] == brick_before
         assert game.felix.world_pos() == felix_before
         assert (game.felix.lives, game.felix.score) == (lives_before, 0)
         assert broken_cell.is_broken

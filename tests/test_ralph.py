@@ -43,12 +43,16 @@ def collect_pound_spawn_ticks(ralph, building, tick_count):
     return spawn_ticks, spawn_positions
 
 
+MAX_WALK_TICKS = 500
+
+
 def arrive_at_pound(ralph, building, level=5):
-    """Put Ralph on his walk target so this tick is the arrival (FUN_0040d870); returns its events."""
-    ralph._target_x = ralph.x
-    events = ralph.tick(building, level)
-    assert ralph.state == RalphState.POUND
-    return events
+    """Walk Ralph to his target; returns the events of the arrival tick (FUN_0040d870)."""
+    for _ in range(MAX_WALK_TICKS):
+        events = ralph.tick(building, level)
+        if ralph.state == RalphState.POUND:
+            return events
+    raise AssertionError("Ralph never arrived at his pound spot")
 
 
 def test_pound_winds_up_then_drops_bricks_every_9_to_16_ticks_and_lasts_76():
@@ -214,9 +218,9 @@ def test_walk_after_climb_targets_left_first():
     ralph, building = make_ralph()
     building.advance_section()
     ralph.start_climb(building, building.ledge_y() + 5)
-    for _ in range(10):
-        ralph.tick(building, 5)
-    assert ralph._target_x == 72
+    ralph.restart_patrol()  # what play does once the climb is over
+    arrive_at_pound(ralph, building)
+    assert ralph.x == 72
 
 
 class RecordingSound:

@@ -14,7 +14,7 @@ pygame.display.set_mode((1, 1))
 from constants import GAME_HEIGHT, GAME_WIDTH  # noqa: E402
 from input_handler import Action  # noqa: E402
 from scene_manager import SceneManager  # noqa: E402
-from scenes.game_phases import PlayPhase  # noqa: E402
+from scenes.game_phases import LevelStartPhase, PlayPhase  # noqa: E402
 from scenes.game_scene import GameScene  # noqa: E402
 
 
@@ -49,19 +49,26 @@ def reach_play(game):
 
 
 def world_snapshot(game):
+    """Everything a paused game must hold still, read through public attributes only."""
     phase = game.phase
-    return (type(phase), dict(vars(phase)), game.camera.scroll_y,
+    # Only LevelStartPhase has progress fields; read them directly so a rename fails loudly.
+    phase_progress = ((phase.has_climb_started, phase.ready_ticks_remaining)
+                      if isinstance(phase, LevelStartPhase) else ())
+    return (type(phase),
+            phase_progress,
+            game.camera.scroll_y,
+            game.felix.world_pos(), game.felix.state,
             game.ralph.x, game.ralph.y, game.ralph.state,
-            [(brick.x, brick.y) for brick in game.bricks._bricks])
+            [(brick.x, brick.y) for brick in game.bricks.bricks])
 
 
 def test_pause_key_toggles():
     for pause_action in (Action.START, Action.PAUSE):
         game = make_game()
         game.tick(MockInput([pause_action]))
-        assert game._is_paused
+        assert game.is_paused
         game.tick(MockInput([pause_action]))
-        assert not game._is_paused
+        assert not game.is_paused
 
 
 def test_paused_level_start_does_not_advance():
@@ -108,9 +115,9 @@ def test_paused_game_ignores_movement_input():
 def test_focus_loss_pauses_but_never_unpauses():
     game = make_game()
     game.tick(MockInput(has_lost_focus=True))
-    assert game._is_paused
+    assert game.is_paused
     game.tick(MockInput(has_lost_focus=True))
-    assert game._is_paused
+    assert game.is_paused
 
 
 def test_paused_draw_renders():

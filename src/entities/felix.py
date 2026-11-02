@@ -294,6 +294,7 @@ class Felix:
 
     def _start_jump(self, row_step, building, sound):
         target_row = self.local_row + row_step
+        # [ASSUMED] Jumping up from the top floor of a section is refused (spec); not decoded.
         if not 0 <= target_row < FLOORS_PER_SECTION:
             return
         # FUN_0040b5e0 starts the drop down (state 6) only when the cell has no
@@ -334,6 +335,8 @@ class Felix:
             self._target_column, self._walk_origin_column)
 
     def _tick_jumping(self, building, sound):
+        # [ASSUMED] Straight line at FELIX_VERTICAL_MOVE_RATE to the target sill; the
+        # exe's FUN_0040bea0 is a gravity jump (about 60 px high), arc not modelled.
         target_x, target_y = self._anchor(building, self._target_row, self.column)
         dist_x = target_x - self._pos_x
         dist_y = target_y - self._pos_y
@@ -429,6 +432,8 @@ class Felix:
         """Pick the nearest column on this floor that no brick is falling toward.
 
         [USER] deviation: the exe (FUN_0040c1a0) always respawns on the hit cell.
+        Also treating a drop-hazard as a threat is [ASSUMED] (Ruling 21: neither
+        the exe nor a user ruling).
         The bricks are frozen during the hit, so one above that cell could hit
         him again right away. Nearest first, then toward the center column; his
         own column if every spot is threatened. He starts from the cell he was
@@ -477,6 +482,11 @@ class Felix:
 
     def _snap_to_anchor(self, building):
         self._pos_x, self._pos_y = self._anchor(building, self.local_row, self.column)
+
+    @property
+    def hit_frame_id(self):
+        """Exe frame id the hit or final-hit animation is showing right now."""
+        return self._hit_frame_id()
 
     def _hit_frame_id(self):
         if self.state in (FelixState.FINAL_HIT_ANIM, FelixState.FINAL_HIT_HOLD):

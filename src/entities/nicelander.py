@@ -93,7 +93,10 @@ class NicelanderDirector:
 
         [EXE] FUN_004084c0 runs the spawn timer and FUN_00407190 only while
         Ralph walks or pounds (state 0/1) and Felix is not in his hit sequence
-        (state 10). A Nicelander already out keeps rising and its pie stays
+        (state 10); the gate below mirrors that for callers that tick the director
+        during a hit. Within PlayPhase the hit freeze returns before this runs, so an
+        existing Nicelander is held too ([ASSUMED]: FUN_004070f0 not decoded for this).
+        Outside a hit, a Nicelander already out keeps rising and its pie stays
         collectable (FUN_004070f0 runs every tick).
         """
         if self.nicelander is not None:
@@ -149,7 +152,11 @@ class NicelanderDirector:
 
     @staticmethod
     def _candidate_cells(building: Building, felix: Felix) -> list[WindowCell]:
-        """First 3 eligible cells scanning the section bottom to top, left to right."""
+        """First 3 eligible cells scanning the section bottom to top, left to right.
+
+        [ASSUMED] Scan order: the exe's FUN_00407190 walks the floor pointers down from
+        0x4217f4 and may scan top to bottom; the floor array order is not decoded.
+        """
         felix_floor = building.section_floors()[felix.local_row]
         candidates: list[WindowCell] = []
         for floor in building.section_floors():

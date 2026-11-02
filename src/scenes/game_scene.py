@@ -158,6 +158,11 @@ class GameScene(Scene):
         elif is_toggle_pressed:
             self._set_paused(not self._is_paused)
 
+    @property
+    def is_paused(self):
+        """True while the game is paused (pause key or window focus loss)."""
+        return self._is_paused
+
     def _set_paused(self, is_paused):
         self._is_paused = is_paused
         if is_paused:

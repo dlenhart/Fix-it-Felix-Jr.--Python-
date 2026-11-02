@@ -5,3 +5,5 @@ venv/
 scores.dat
 .DS_Store
 .superpowers/
+.coverage
+htmlcov/

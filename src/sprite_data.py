@@ -83,8 +83,6 @@ SPRITES = {
 
     # Hazards and items
     "brick_falling": [(920, 16, 23, 27)],
-    "bird_right": [(336, 24, 21, 13)],
-    "bird_left": [(360, 30, 21, 13)],
 
     # UI elements
     "title_logo": [(226, 114, 184, 70)],

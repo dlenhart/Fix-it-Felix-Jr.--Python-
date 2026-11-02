@@ -48,6 +48,8 @@ def load_scores():
         with open(SCORES_FILE, "r") as f:
             return json.load(f)
     except (json.JSONDecodeError, IOError):
+        # TODO: a corrupt or unreadable scores file is silently treated as an empty
+        # table (and the next save overwrites it); fail-fast says raise instead.
         return []
 
 
@@ -71,6 +73,11 @@ class HighScoreScene(Scene):
         self._letter_index = FIRST_LETTER_INDEX
         self._display_ticks = 0
         self._flash_ticks = 0
+
+    @property
+    def initials(self):
+        """The three entry letters as currently shown, as a snapshot."""
+        return tuple(self._initials)
 
     def _qualifies(self):
         if self.final_score <= 0:

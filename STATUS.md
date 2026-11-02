@@ -1,10 +1,20 @@
 # Fix-It Felix Jr. — Implementation Status
 
-_Last updated: 2026-10-30_
+_Last updated: 2026-11-02_
+
+## Running tests
+
+```
+pip install -r requirements-dev.txt        # dev-only: pins coverage
+python3 -m pytest tests -q                 # tests only
+python3 -m coverage run -m pytest tests -q && python3 -m coverage report
+```
+
+`.coveragerc` measures `src` with branch coverage, omits the four GUI-only modules verified by hand (`main.py`, `title_scene.py`, `cutscene_scene.py`, `game_over_scene.py`), and fails the report under 90%. Tests use SDL dummy drivers, so no window or sound device is needed. One test is an expected failure (`xfail`): a corrupt `scores.dat` is silently treated as empty (TODO in `high_score_scene.load_scores`).
 
 ## Gameplay rebuild in progress (branch `gameplay-rebuild`)
 
-The game layer is being rebuilt from Ghidra pass 4, following `docs/superpowers/plans/2026-10-21-gameplay-rebuild.md`. **Tasks 1–10 are done, reviewed and committed**, plus the playtest fixes 8b/8c and 10b/10c. Latest commit: `bc0cd91`. Run the game with `python3 src/main.py`.
+The game layer is being rebuilt from Ghidra pass 4, following `docs/superpowers/plans/2026-10-21-gameplay-rebuild.md`. **Tasks 1–11 are done and reviewed** (including the roof ending), plus the playtest fixes 8b/8c and 10b/10c. Latest commit: `f875e71`; Task 12 (the pre-refactor test safety net) and the final-review fixes are uncommitted in the working tree. The 2026-11-02 playtest passed. Run the game with `python3 src/main.py`.
 
 ### Task 10 checkpoint: passed (2026-10-30)
 
@@ -21,15 +31,15 @@ The checkpoint's fixes (uncommitted until the user commits):
 
 **Dev shortcut (kept on purpose):** start on any level with `FELIX_START_LEVEL=5 python3 src/main.py` (`start_level_from_environment` in `src/scenes/game_scene.py`). A non-integer or a level below 1 raises at game start.
 
-### Task 11: done except the roof ending (2026-10-30, commits `45db5e3`, `33cf1a5`)
+### Task 11: done, including the roof ending (2026-10-30 to 2026-11-02, commits `45db5e3`, `33cf1a5`, `1d25368`)
 
 - Default high scores from the exe (`FUN_0040a060`): VAV 15000, DES 10000, RYS 8000, KYL 6000, CMI 4000, used when `scores.dat` is missing.
-- The level end starts the next level at once; its [EXE] 180-tick pause is the next level's ready pause (`FUN_004086e0`). There is no roof ending yet.
+- The level end starts the next level at once; its [EXE] 180-tick pause is the next level's ready pause (`FUN_004086e0`). The roof ending is built (commit `1d25368`).
 - Dead sprite entries removed (`wall_brick`, `window_*`, `shutter_*`, `niceland_sign`, `ledge`).
-- **Roof ending: needs an exe decode first, no guessed values.** Leads: `FUN_004089b0` → `FUN_004047f0`, `FUN_00404ce0` (flag `DAT_00424330`); `FUN_00402b94`, `FUN_00402cd8` (pass 4 open item 5); frames 24–29 (Felix with medal), 180–185 (medals), Ralph thrown off in 74–127. Full list: `.superpowers/sdd/2026-10-21-gameplay-rebuild/task-11-report.md`.
+- **Roof ending (built; decode leads kept for reference):** `FUN_004089b0` → `FUN_004047f0`, `FUN_00404ce0` (flag `DAT_00424330`); `FUN_00402b94`, `FUN_00402cd8` (pass 4 open item 5); frames 24–29 (Felix with medal), 180–185 (medals), Ralph thrown off in 74–127. Full list: `.superpowers/sdd/2026-10-21-gameplay-rebuild/task-11-report.md`.
 
 **Your level 1 → 2 playtest (Task 11 checkpoint), `python3 src/main.py`:**
-- [x] Finishing level 1's last section goes straight to level 2 (no roof ending or "YOU FIXED IT!" yet; expected until the decode).
+- [x] Finishing level 1's last section went straight to level 2 (2026-10-30; the roof ending has since been added).
 - [x] Level 2 opens with the usual 3 s ready pause, with the same score and lives you ended level 1 on (2026-10-30: 2300 points, ×6 after 4 deaths from 10).
 - [x] With `scores.dat` moved aside, the high-score table shows VAV 15000, DES 10000, RYS 8000, KYL 6000, CMI 4000 (2026-10-30).
 
@@ -38,14 +48,14 @@ The checkpoint's fixes (uncommitted until the user commits):
 
 - **Later (user, 2026-10-30):** "I'd like to be given more time to update it" — revisit the initials entry (check against the exe; it has a 30 s TIME LEFT limit and hold-to-repeat that we didn't adopt).
 
-**Next:** roof-ending exe decode → Task 12 (pre-refactor test safety net, coverage ≥ 90%) → final whole-branch review.
+**Next:** commit Task 12 and the final-review fixes → the refactor.
 
 ### Earlier checkpoints (all passed)
 - **Task 8 (2026-10-21/22):** hit sequence (knocked down, falls, ~1 s gone, respawn, life lost at the respawn), Ralph and bricks freeze during it, last life → death animation → GAME OVER (the last head leaves the HUD at the fatal hit), section clear → Ralph climbs → scroll, level end → next level with score and lives kept.
 - **Your rulings:** safer respawn (nearest window on the same floor that no brick is falling toward; ties toward the center, then left; fallback to the same window); Felix sliding off during the section scroll is fine (the exe does it too); door damage visibility left as is; brick cracks on level 2 verified by simulation.
 - **Level table (exe):** levels 1–2 are 9 floors / 2 sections, levels 3–4 are 13 / 3, level 5+ is 17 / 4. Obstacles from level 3, birds from level 4, dropped objects from level 5.
 
-**Still not built:** the roof/medal ending (Task 11). The intro cutscene is still the old one, to revisit separately.
+**Still not built:** the intro cutscene is still the old one, to revisit separately.
 
 ## Done — Tasks 1-14 (all reviewed, all committed)
 

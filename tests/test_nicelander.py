@@ -13,6 +13,7 @@ pygame.display.set_mode((1, 1))
 
 from entities.building import PANE_SMASHED, Building, CellKind  # noqa: E402
 from entities.felix import Felix  # noqa: E402
+from input_handler import Action  # noqa: E402
 from entities.nicelander import (  # noqa: E402
     FRAME_START_TICKS, NICELANDER_MAX_CANDIDATES, NICELANDER_REARM_TICKS,
     NICELANDER_SPAWN_TICKS, NicelanderDirector,
@@ -169,10 +170,11 @@ def test_fixing_the_window_removes_nicelander_and_pie():
     assert director.nicelander is None
 
     # A fix elsewhere leaves a Nicelander alone.
-    other = Building(1, random.Random(2))
     building, felix, director = make_world(2)
     nicelander = spawn_nicelander(building, felix, director)
-    director.on_window_fixed(other.section_floors()[0].cells[0])
+    other_cell = next(cell for floor in building.section_floors() for cell in floor.cells
+                      if cell is not nicelander.cell)
+    director.on_window_fixed(other_cell)
     assert director.nicelander is nicelander
 
 
@@ -273,6 +275,31 @@ def test_collecting_the_pie_in_play_makes_felix_invulnerable_and_ralph_rage():
     assert game.felix.is_invulnerable
     assert game.ralph.state == RalphState.RAGE
     assert game.nicelanders.nicelander is None
+
+
+def test_felix_fixing_the_nicelanders_window_in_play_sends_him_away():
+    _, game = make_game()
+    reach_play(game)
+    game.nicelanders = due_director(game.building, game.felix)
+    game.tick(MockInput())
+    nicelander = game.nicelanders.nicelander
+    cell = nicelander.cell
+    assert cell.is_broken
+    game.felix.place_at(cell.floor_index, cell.column, game.building)
+    score_before = game.felix.score
+
+    # Standing in the cell does not remove him; only the fix does.
+    game.tick(MockInput())
+    assert game.nicelanders.nicelander is nicelander
+
+    for _ in range(300):
+        game.tick(MockInput([Action.JUMP]))
+        if game.nicelanders.nicelander is not nicelander:
+            break
+    assert game.nicelanders.nicelander is None
+    assert not cell.is_broken
+    assert game.felix.score > score_before
+    assert not game.felix.is_invulnerable  # sent away, not a collected pie
 
 
 def test_section_clear_phase_removes_nicelander():

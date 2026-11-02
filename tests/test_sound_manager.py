@@ -85,3 +85,38 @@ def test_stopping_the_current_musics_index_stops_the_music(sound, monkeypatch):
 def test_every_mapped_sound_file_exists():
     for filename in list(sound_manager.SOUND_MAP.values()) + list(sound_manager.MUSIC_MAP.values()):
         assert os.path.exists(os.path.join(sound_manager.ASSET_DIR, f"{filename}.wav")), filename
+
+
+def test_unknown_music_name_loads_nothing(sound):
+    manager, music = sound
+    manager.play_music("no_such_music")
+    assert music.loaded == []
+
+
+def test_missing_sound_index_raises_instead_of_staying_silent(sound):
+    manager, _ = sound
+    missing_index = 9999
+    with pytest.raises(FileNotFoundError):
+        manager.play_sound_index(missing_index)
+    with pytest.raises(FileNotFoundError):
+        manager.restart_sound_index(missing_index)
+    with pytest.raises(FileNotFoundError):
+        manager.stop_sound_index(missing_index)
+
+
+def test_pause_and_resume_reach_the_music_channel(sound, monkeypatch):
+    manager, music = sound
+    calls = []
+    monkeypatch.setattr(music, "pause", lambda: calls.append("pause"), raising=False)
+    monkeypatch.setattr(music, "unpause", lambda: calls.append("unpause"), raising=False)
+    manager.pause_all()
+    manager.resume_all()
+    assert calls == ["pause", "unpause"]
+
+
+def test_music_volume_is_forwarded(sound, monkeypatch):
+    manager, music = sound
+    volumes = []
+    monkeypatch.setattr(music, "set_volume", volumes.append, raising=False)
+    manager.set_music_volume(0.25)
+    assert volumes == [0.25]

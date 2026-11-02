@@ -370,13 +370,13 @@ def test_hit_animation_frame_ids_follow_facing():
     f, b = make_felix()
     f.facing_right = True
     f.hit()
-    assert f._hit_frame_id() == 34
+    assert f.hit_frame_id == 34
     tick_n(f, b, 6)
-    assert f._hit_frame_id() == 35
+    assert f.hit_frame_id == 35
     f, b = make_felix()
     f.facing_right = False
     f.hit()
-    assert f._hit_frame_id() == 64
+    assert f.hit_frame_id == 64
 
 
 def fall_off(felix, building):
@@ -508,10 +508,10 @@ def test_final_sequence_timing_from_exe_holds():
     assert f.state == FelixState.FINAL_HIT_ANIM
     tick_n(f, b, 1)
     assert f.state == FelixState.FINAL_HIT_HOLD
-    assert f._hit_frame_id() == 72
+    assert f.hit_frame_id == 72
     tick_n(f, b, FELIX_GAME_OVER_DELAY_TICKS - 1)
     assert not f.is_game_over
-    assert f._hit_frame_id() == 74  # lies on the halo frame
+    assert f.hit_frame_id == 74  # lies on the halo frame
     tick_n(f, b, 1)
     assert f.is_game_over
 

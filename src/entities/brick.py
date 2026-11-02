@@ -87,6 +87,11 @@ class BrickField:
     def live_count(self) -> int:
         return len(self._bricks)
 
+    @property
+    def bricks(self) -> tuple[Brick, ...]:
+        """The live bricks, as a snapshot."""
+        return tuple(self._bricks)
+
     def spawn(self, x: float, y: float) -> None:
         if len(self._bricks) >= BRICK_MAX_LIVE:
             return

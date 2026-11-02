@@ -13,8 +13,9 @@ import pygame  # noqa: E402
 pygame.init()
 pygame.display.set_mode((1, 1))
 
-from constants import GAME_HEIGHT, GAME_WIDTH  # noqa: E402
+from constants import GAME_HEIGHT, GAME_WIDTH, INVULNERABLE_TICKS  # noqa: E402
 from input_handler import Action  # noqa: E402
+from level_config import get_level_config  # noqa: E402
 from scene_manager import SceneManager  # noqa: E402
 from scenes.game_over_scene import GameOverScene  # noqa: E402
 from entities.felix import FelixState  # noqa: E402
@@ -298,9 +299,130 @@ def test_game_over_fires_once():
     assert len(replace_calls) == 1
 
 
+def count_replace_calls(manager):
+    replace_calls = []
+    original_replace = manager.replace
+
+    def counting_replace(scene):
+        replace_calls.append(scene)
+        original_replace(scene)
+
+    manager.replace = counting_replace
+    return replace_calls
+
+
+def assert_game_over_fires_once_with_no_lives(manager, game, replace_calls):
+    tick_until(game, lambda: manager.current is not game)
+    assert game.felix.lives == 0
+    assert len(replace_calls) == 1
+    assert isinstance(manager.current, GameOverScene)
+    game.tick(MockInput())
+    assert len(replace_calls) == 1
+
+
+def test_game_over_fires_once_when_the_last_life_is_lost_during_rage():
+    manager, game = make_game()
+    reach_play(game)
+    game.bricks.clear()
+    game.felix.lives = 1
+    replace_calls = count_replace_calls(manager)
+    game.ralph.start_rage()
+    for _ in range(90):  # past the wind-up: Ralph is throwing every 8 ticks
+        game.tick(MockInput())
+    assert game.ralph.state == RalphState.RAGE
+    spawn_brick_on_felix(game)
+    assert_game_over_fires_once_with_no_lives(manager, game, replace_calls)
+
+
+def test_game_over_fires_once_when_a_second_brick_lands_after_a_bounce():
+    manager, game = make_game()
+    reach_play(game)
+    game.bricks.clear()
+    game.felix.lives = 1
+    game.felix.activate_invulnerability()
+    replace_calls = count_replace_calls(manager)
+    spawn_brick_on_felix(game)
+    game.tick(MockInput())
+    assert any(brick.is_bouncing for brick in game.bricks.bricks)
+    assert game.felix.lives == 1 and not game.felix.is_in_hit_sequence
+
+    hitbox = game.felix.hitbox()
+    game.bricks.spawn(hitbox.centerx, hitbox.top - 20)  # still falling
+    game.felix.end_invulnerability()
+    assert_game_over_fires_once_with_no_lives(manager, game, replace_calls)
+
+
+def test_game_over_fires_once_when_invulnerability_expires_under_a_falling_brick():
+    manager, game = make_game()
+    reach_play(game)
+    game.bricks.clear()
+    game.felix.lives = 1
+    game.felix.activate_invulnerability()
+    replace_calls = count_replace_calls(manager)
+    for _ in range(INVULNERABLE_TICKS - 1):
+        game.tick(MockInput())
+        game.bricks.clear()
+    assert game.felix.is_invulnerable and game.felix.lives == 1
+
+    spawn_brick_on_felix(game)
+    game.tick(MockInput())  # the timer runs out on this tick, then the brick lands
+    assert not game.felix.is_invulnerable
+    assert game.felix.state == FelixState.FINAL_HIT_ANIM
+    assert_game_over_fires_once_with_no_lives(manager, game, replace_calls)
+
+
+def play_the_last_window_fix(is_last_section, lives, brick_on_tick=None):
+    """Hammer the one broken window; returns (game, sound, tick index of the fix or None).
+
+    A brick is dropped onto Felix just before tick `brick_on_tick`.
+    """
+    _, game = make_game()
+    game.sound = RecordingSound()
+    reach_play(game)
+    if is_last_section:
+        for _ in range(game.building.section_count - 1):
+            fix_section(game)
+            tick_until(game, lambda: not isinstance(game.phase, PlayPhase))
+            tick_until(game, lambda: isinstance(game.phase, PlayPhase))
+    felix_cell = game.building.cell(game.felix.local_row, game.felix.column)
+    game.building.damage(felix_cell, True)
+    assert felix_cell.is_broken
+    for floor in game.building.section_floors():
+        for cell in floor.cells:
+            if cell is not felix_cell:
+                game.building.fix(cell)
+    assert game.building.broken_count == 1
+    game.bricks.clear()
+    game.felix.lives = lives
+    calls_before = len(game.sound.calls)
+    for tick_index in range(300):
+        if tick_index == brick_on_tick:
+            spawn_brick_on_felix(game)
+        game.tick(MockInput([Action.JUMP]))
+        if not isinstance(game.phase, PlayPhase):
+            del game.sound.calls[:calls_before]
+            return game, game.sound, tick_index
+    raise AssertionError("the window was never fixed")
+
+
+@pytest.mark.parametrize("is_last_section", [False, True])
+@pytest.mark.parametrize("lives", [1, 3])
+def test_a_brick_on_the_fixing_tick_cannot_hit_felix(is_last_section, lives):
+    # FUN_0040bc80 clears the section inside Felix's handler, before bricks move.
+    _, _, fix_tick = play_the_last_window_fix(is_last_section, lives)
+    game, sound, _ = play_the_last_window_fix(is_last_section, lives, brick_on_tick=fix_tick)
+
+    expected_phase = LevelEndPhase if is_last_section else SectionClearPhase
+    assert isinstance(game.phase, expected_phase)
+    assert not game.felix.is_in_hit_sequence
+    assert game.felix.lives == lives
+    assert ("play_sfx", "felix_hit") not in sound.calls
+    assert ("play_music_index", 0x15, False) not in sound.calls
+
+
 def frozen_world(game):
     return ((game.ralph.x, game.ralph.y, game.ralph.state),
-            [(brick.x, brick.y) for brick in game.bricks._bricks])
+            [(brick.x, brick.y) for brick in game.bricks.bricks])
 
 
 def test_hit_freezes_ralph_and_bricks_until_respawn():
@@ -498,3 +620,15 @@ def test_start_level_rejects_bad_values(monkeypatch, raw_level):
     monkeypatch.setenv("FELIX_START_LEVEL", raw_level)
     with pytest.raises(ValueError):
         start_level_from_environment()
+
+
+def test_a_game_starting_past_the_config_table_plays_on_with_the_level_10_config(monkeypatch):
+    monkeypatch.setenv("FELIX_START_LEVEL", "11")
+    _, game = make_game()
+    assert game.level == 11
+    assert get_level_config(game.level) == get_level_config(10)
+    reach_play(game)
+    for _ in range(600):
+        game.tick(MockInput())
+    assert isinstance(game.phase, (PlayPhase, SectionClearPhase, LevelEndPhase))
+    assert get_level_config(game.level) == get_level_config(10)

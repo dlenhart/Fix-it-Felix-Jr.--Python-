@@ -87,7 +87,7 @@ def test_invulnerable_felix_bounces_brick_and_keeps_lives():
     assert field.tick(building, felix, level=1) is False
     assert felix.lives == lives
     assert field.live_count == 1
-    assert field._bricks[0].is_bouncing
+    assert field.bricks[0].is_bouncing
 
 
 def test_level_one_bricks_never_break_windows():
@@ -133,7 +133,7 @@ def test_ground_bounce_then_disappears():
     field = BrickField(random.Random(0))
     field.spawn(10, GROUND_Y - 1)
     field.tick(building, felix, level=1)
-    brick = field._bricks[0]
+    brick = field.bricks[0]
     assert brick.is_bouncing
     for _ in range(BRICK_BOUNCE_TICKS):
         assert field.live_count == 1

@@ -174,12 +174,22 @@ class PlayPhase(GamePhase):
             game.end_game()
             return None
         # FUN_0040e1d0 freezes Ralph and every brick until the respawn unfreezes
-        # them (FUN_0040e220); they stay drawn where they stopped.
+        # them (FUN_0040e220); they stay drawn where they stopped. This early return
+        # also freezes birds, drop-hazards, the obstacle bounce (hazards per Ruling 20)
+        # and an existing Nicelander ([ASSUMED]: FUN_004070f0 not decoded for this).
         if game.felix.is_in_hit_sequence:
             return None
         if has_respawned:
             # FUN_0040c1a0 -> FUN_0040e220, before Ralph's handler runs this tick.
             game.ralph.restart_patrol()
+
+        # FUN_0040bc80 clears the section on the fixing tick itself, inside Felix's
+        # handler, so nothing can hit him later in that tick.
+        if game.building.is_section_clear():
+            if game.building.is_last_section:
+                return LevelEndPhase()
+            _clear_section(game)
+            return SectionClearPhase()
 
         if game.felix.last_fixed_points:
             game.nicelanders.on_window_fixed(
@@ -196,20 +206,15 @@ class PlayPhase(GamePhase):
             game.hazards.reset_birds()
         game.hazards.tick(game.building, game.felix, game.sound)
 
-        if not game.building.is_section_clear():
-            return None
-        if game.building.is_last_section:
-            return LevelEndPhase()
-        # FUN_0040bc80 clears the section on the fixing tick itself.
-        _clear_section(game)
-        return SectionClearPhase()
-
+        return None
 
     @staticmethod
     def _is_spot_threatened(game: GameScene, hitbox: pygame.Rect) -> bool:
-        """Respawn predicate: a falling brick or drop-hazard is bearing down on the spot."""
-        return game.bricks.is_falling_toward(hitbox) or game.hazards.is_threatening(hitbox)
+        """Respawn predicate: a falling brick or drop-hazard is bearing down on the spot.
 
+        Counting drop-hazards is [ASSUMED]: Ruling 21, neither the exe nor a user ruling.
+        """
+        return game.bricks.is_falling_toward(hitbox) or game.hazards.is_threatening(hitbox)
 
 
 class SectionClearPhase(GamePhase):

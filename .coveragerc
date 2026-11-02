@@ -1,0 +1,12 @@
+[run]
+source = src
+branch = True
+omit =
+    src/main.py
+    src/scenes/title_scene.py
+    src/scenes/cutscene_scene.py
+    src/scenes/game_over_scene.py
+
+[report]
+fail_under = 90
+show_missing = True
