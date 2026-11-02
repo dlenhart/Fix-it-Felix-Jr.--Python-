@@ -13,7 +13,7 @@ from font_renderer import FontRenderer, scale_text_to_fit
 from camera import Camera
 from entities.building import Building
 from entities.felix import Felix, RESPAWN_COLUMN, RESPAWN_LOCAL_ROW
-from entities.ralph import Ralph
+from entities.ralph import DropHazardSchedule, Ralph
 from entities.brick import BrickField
 from entities.hazards import HazardField
 from entities.nicelander import NicelanderDirector
@@ -76,6 +76,8 @@ class GameScene(Scene):
         # TODO: the exe keeps this flag (and roof_footstep_counter) for the whole
         # program run, so a press on the title screen also counts; ours is per game.
         self.is_end_game_requested = False
+        # [EXE] DAT_00421740 / DAT_00421744: reset only at game start (FUN_0040e3f0).
+        self.drop_hazard_schedule = DropHazardSchedule()
         # [EXE] DAT_0041a238: the roof march's footstep counter is never reset.
         self.roof_footstep_counter = 0
 
@@ -100,7 +102,7 @@ class GameScene(Scene):
         self.level = level
         self.building = Building(level, self.rng)
         self.camera = Camera()
-        self.ralph = Ralph(self.rng)
+        self.ralph = Ralph(self.rng, self.drop_hazard_schedule)
         self.ralph.x = RALPH_START_X
         self.bricks = BrickField(self.rng)
         self.nicelanders = NicelanderDirector(self.rng)
@@ -113,9 +115,8 @@ class GameScene(Scene):
         if self._has_game_ended:
             return
         self._has_game_ended = True
-        self.sound.stop_music()
-        # TODO: GameOverScene.on_enter also plays "game_over", so it sounds twice.
-        self.sound.play_sfx("game_over")
+        # No sound here: the final hit already played sound 21 (FUN_0040ca00), and
+        # the exe's game-over states 7 and 8 never touch the music.
         from scenes.game_over_scene import GameOverScene
         self.manager.replace(GameOverScene(self.manager, self.felix.score))
 

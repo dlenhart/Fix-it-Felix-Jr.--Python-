@@ -194,3 +194,20 @@ def test_brick_crack_plays_window_break():
     field.tick(building, felix, level=2, sound=sound)
     assert cell.is_broken
     assert sound.played == ["window_break"]
+
+
+def test_brick_hit_plays_sound_0_and_bounce_plays_sound_3():
+    # FUN_0040d490: sound 0 when it hits Felix, sound 3 when it bounces off an invulnerable one.
+    building, felix = make_world()
+    field = BrickField(random.Random(0))
+    sound = RecordingSound()
+    spawn_on_felix(field, felix)
+    field.tick(building, felix, level=1, sound=sound)
+    assert sound.played == ["felix_hit"]
+
+    building, felix = make_world()
+    felix.activate_invulnerability()
+    sound = RecordingSound()
+    spawn_on_felix(field, felix)
+    field.tick(building, felix, level=1, sound=sound)
+    assert sound.played == ["brick_bounce"]

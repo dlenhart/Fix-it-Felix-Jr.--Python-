@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from entities.building import Building  # noqa: E402
-from entities.ralph import Ralph, RalphState  # noqa: E402
+from entities.ralph import DropHazardSchedule, Ralph, RalphState  # noqa: E402
 
 
 def make_ralph(seed=0, level=5):
@@ -43,19 +43,28 @@ def collect_pound_spawn_ticks(ralph, building, tick_count):
     return spawn_ticks, spawn_positions
 
 
-def test_pound_brick_interval_between_9_and_16_ticks():
-    ralph, building = make_ralph()
-    ralph.x = 72  # skip the walk: arrive immediately
-    ralph._target_x = 72
-    ralph.tick(building, 5)
+def arrive_at_pound(ralph, building, level=5):
+    """Put Ralph on his walk target so this tick is the arrival (FUN_0040d870); returns its events."""
+    ralph._target_x = ralph.x
+    events = ralph.tick(building, level)
     assert ralph.state == RalphState.POUND
-    ticks = []
-    for tick_number in range(59):
+    return events
+
+
+def test_pound_winds_up_then_drops_bricks_every_9_to_16_ticks_and_lasts_76():
+    # FUN_0040d870 sets the countdown to 9; FUN_0040d970 only counts it after the
+    # 20-tick wind-up (anim 24 frames 0-1), then re-rolls 9 + rand() & 7.
+    ralph, building = make_ralph()
+    arrive_at_pound(ralph, building)
+    spawn_ticks = []
+    tick_number = 0
+    while ralph.state == RalphState.POUND:
+        tick_number += 1
         if ralph.tick(building, 5).brick_spawns:
-            ticks.append(tick_number)
-    assert len(ticks) >= 3
-    assert 9 <= ticks[0] + 1 <= 16
-    assert all(9 <= later - earlier <= 16 for earlier, later in zip(ticks, ticks[1:]))
+            spawn_ticks.append(tick_number)
+    assert tick_number == 76  # the walk starts on the tick anim 24 is seen finished
+    assert spawn_ticks[0] == 20 + 9
+    assert all(9 <= later - earlier <= 16 for earlier, later in zip(spawn_ticks, spawn_ticks[1:]))
 
 
 def test_brick_spawn_within_spread_of_ralph():
@@ -82,18 +91,58 @@ def test_drop_hazard_requested_after_three_cycles():
     assert request_ticks[1] - request_ticks[0] > 100
 
 
-def test_drop_hazard_first_request_comes_after_third_pound_ends():
+def test_drop_hazard_comes_30_ticks_into_the_third_pounds_main_phase():
     ralph, building = make_ralph()
-    cycles_seen = 0
+    arrivals = 0
+    ticks_since_arrival = 0
     previous_state = ralph.state
     for _ in range(3000):
         events = ralph.tick(building, 5)
-        if previous_state == RalphState.POUND and ralph.state == RalphState.WALK:
-            cycles_seen += 1
+        ticks_since_arrival += 1
+        if previous_state == RalphState.WALK and ralph.state == RalphState.POUND:
+            arrivals += 1
+            ticks_since_arrival = 0
         previous_state = ralph.state
         if events.is_drop_hazard_requested:
             break
-    assert cycles_seen == 3
+    assert arrivals == 3
+    assert ralph.state == RalphState.POUND
+    assert ticks_since_arrival == 20 + 30
+
+
+def test_drop_schedule_carries_over_to_the_next_levels_ralph():
+    schedule = DropHazardSchedule()
+    building = Building(5, random.Random(0))
+    for _ in range(2):
+        ralph = Ralph(random.Random(0), schedule)
+        ralph.place_on_ledge(building)
+        arrive_at_pound(ralph, building)
+    next_ralph = Ralph(random.Random(0), schedule)
+    next_ralph.place_on_ledge(building)
+    arrive_at_pound(next_ralph, building)
+    requests = [next_ralph.tick(building, 5).is_drop_hazard_requested for _ in range(76)]
+    assert requests.index(True) == 20 + 30 - 1
+
+
+def test_armed_drop_timer_only_counts_while_pounding():
+    schedule = DropHazardSchedule()
+    for _ in range(3):
+        schedule.on_pound_arrival()
+    ralph = Ralph(random.Random(0), schedule)
+    building = Building(5, random.Random(0))
+    ralph.place_on_ledge(building)
+    ralph.start_section_clear()  # the pre-roof wait: Ralph poses
+    assert not any(ralph.tick(building, 5).is_drop_hazard_requested for _ in range(500))
+    assert [schedule.tick_pound() for _ in range(30)] == [False] * 29 + [True]
+
+
+def test_drop_schedule_arms_on_every_third_arrival():
+    schedule = DropHazardSchedule()
+    fired = []
+    for _ in range(6):
+        schedule.on_pound_arrival()
+        fired.append(any(schedule.tick_pound() for _ in range(30)))
+    assert fired == [False, False, True, False, False, True]
 
 
 def test_no_drop_hazard_on_levels_without_them():
@@ -145,7 +194,7 @@ def test_climb_reaches_new_ledge_and_damages_section():
             break
     assert finished_ticks is not None
     assert ralph.y == building.ledge_y() and ralph.x == 120
-    assert ralph.state == RalphState.WALK
+    assert ralph.state == RalphState.IDLE  # FUN_0040dbb0 leaves him on the ledge until play resumes
     assert building.broken_count > 0
 
 
@@ -228,3 +277,118 @@ def test_level_start_heavy_hit_plays_window_break():
     Ralph(random.Random(0)).start_climb(building, 320, first_heavy_cell=door, sound=sound)
     assert door.is_broken
     assert sound.played == ["window_break"]
+
+
+class SmashSoundRecorder:
+    def __init__(self):
+        self.restarted = []
+
+    def restart_sound_index(self, index):
+        self.restarted.append(index)
+
+    def play_sfx(self, name):
+        pass
+
+
+def test_pound_smash_sound_on_frames_82_and_84():
+    # FUN_0040d970: sound 0x10 restarts when the node lands on frame 0x52 or 0x54;
+    # anim 24 reaches them at ticks 20, 34, 48 and 62 after the arrival.
+    ralph, building = make_ralph()
+    arrive_at_pound(ralph, building)
+    sound = SmashSoundRecorder()
+    smash_ticks = []
+    for tick_number in range(1, 77):
+        before = len(sound.restarted)
+        ralph.tick(building, 5, sound)
+        if len(sound.restarted) > before:
+            smash_ticks.append(tick_number)
+    assert smash_ticks == [20, 34, 48, 62]
+    assert set(sound.restarted) == {0x10}
+
+
+def test_rage_smash_sound_on_every_frame_of_anim_25():
+    ralph, building = make_ralph()
+    ralph.start_rage()
+    sound = SmashSoundRecorder()
+    smash_ticks = []
+    for tick_number in range(1, 200):
+        before = len(sound.restarted)
+        ralph.tick(building, 5, sound)
+        if len(sound.restarted) > before:
+            smash_ticks.append(tick_number)
+    assert smash_ticks[0] > 80  # nothing during the wind-up (anim 26)
+    assert all(later - earlier == 7 for earlier, later in zip(smash_ticks, smash_ticks[1:]))
+
+
+def test_frames_follow_the_exe_animations():
+    ralph, building = make_ralph()
+    assert ralph.frame_id in (78, 79)  # walking, anim 23
+    arrive_at_pound(ralph, building)
+    shown = set()
+    while ralph.state == RalphState.POUND:
+        shown.add(ralph.frame_id)
+        ralph.tick(building, 5)
+    assert shown == set(range(80, 86))  # anim 24
+    ralph.start_climb(building, ralph.y + 40)
+    assert ralph.frame_id in (88, 89)  # anim 27
+    ralph.start_section_clear(is_last_section=True)
+    assert ralph.frame_id == 75  # anim 20
+    ralph.start_section_clear(is_last_section=False)
+    assert ralph.frame_id in (80, 81)  # anim 26
+
+
+def test_idle_on_the_ledge_keeps_animating():
+    ralph, building = make_ralph()
+    ralph.idle()
+    shown = set()
+    for _ in range(30):
+        ralph.animate()
+        shown.add(ralph.frame_id)
+    assert shown == {80, 81}
+
+
+def walk_to_next_pound(ralph, building):
+    while ralph.state != RalphState.WALK:
+        ralph.tick(building, 5)
+    for _ in range(500):
+        ralph.tick(building, 5)
+        if ralph.state == RalphState.POUND:
+            return
+    raise AssertionError("Ralph never reached a pound spot")
+
+
+def next_walk_target(ralph, building):
+    """Walk until Ralph arrives somewhere and return where."""
+    walk_to_next_pound(ralph, building)
+    return ralph.x
+
+
+def test_respawn_restart_from_a_side_heads_back_to_center():
+    ralph, building = make_ralph()
+    walk_to_next_pound(ralph, building)
+    assert ralph.x == 72
+    ralph.restart_patrol()
+    assert ralph.state == RalphState.WALK
+    assert next_walk_target(ralph, building) == 120
+
+
+def test_respawn_restart_from_center_always_heads_for_72():
+    # FUN_0040e220 clears +0xe2e, so even a patrol due to go right turns left.
+    ralph, building = make_ralph()
+    walk_to_next_pound(ralph, building)  # 72
+    walk_to_next_pound(ralph, building)  # 120, next out would be 169
+    assert ralph.x == 120
+    ralph.restart_patrol()
+    assert next_walk_target(ralph, building) == 72
+
+
+def test_respawn_restart_mid_walk_out_turns_for_72():
+    ralph, building = make_ralph()
+    walk_to_next_pound(ralph, building)  # 72
+    walk_to_next_pound(ralph, building)  # 120
+    while ralph.state != RalphState.WALK:
+        ralph.tick(building, 5)
+    ralph.tick(building, 5)
+    assert ralph.x > 120  # on the way out to 169
+    ralph.restart_patrol()
+    assert next_walk_target(ralph, building) == 72

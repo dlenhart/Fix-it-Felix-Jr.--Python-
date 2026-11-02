@@ -17,7 +17,8 @@ class TitleScene(Scene):
         self._show_press_start = True
 
     def on_enter(self):
-        self.sound.play_music("title")
+        # [USER] loops; the exe plays the title music once.
+        self.sound.play_music("title", loop=True)
 
     def on_exit(self):
         self.sound.stop_music()
@@ -26,7 +27,7 @@ class TitleScene(Scene):
         """One game tick (1/60s). All game logic is tick-counted."""
         if (input_handler.is_just_pressed(Action.START) or
                 input_handler.is_just_pressed(Action.JUMP)):
-            self.sound.play_sfx("menu_confirm")
+            self.sound.play_sfx("new_game")  # FUN_004076e0
             from scenes.cutscene_scene import CutsceneScene
             self.manager.replace(CutsceneScene(self.manager))
             return

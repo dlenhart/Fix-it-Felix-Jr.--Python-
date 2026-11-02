@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import pygame
 
-from constants import GAME_WIDTH, GAME_HEIGHT, RALPH_SECTION_POSE_TICKS
+from constants import GAME_WIDTH, GAME_HEIGHT, RALPH_SECTION_CLIMB_WAIT_TICKS
 from entities.felix import FelixState
 from font_renderer import scale_text_to_fit
 from entities.hazards import clear_sill_obstacles
@@ -42,7 +42,8 @@ SCORE_POPUP_RISE_PX = 0x28 - 8
 # [EXE] FUN_00409ac0 arms DAT_00424280 = 0x3c when the last section is clear;
 # FUN_004084c0 counts it down while no score popup is up, then enters state 6.
 LEVEL_END_COUNTDOWN_TICKS = 0x3C
-SECTION_CLEAR_STOPPED_SOUND = 0x19  # [EXE] FUN_00409ac0 stops sound 25 (FUN_00410140)
+SECTION_CLEAR_STOPPED_SOUND = 0x19  # [EXE] FUN_00409ac0 stops sound 25, the bonus-life sound
+SECTION_CLIMB_DONE_SOUND = 0x1d  # [EXE] FUN_00408810: Ralph reached the new ledge
 SECTION_CLEAR_MUSIC = 0x16  # [EXE] FUN_00409ac0: FUN_0040f4a0(0), ESI 0x16 (one-shot)
 
 
@@ -71,6 +72,31 @@ def draw_exe_text(game: GameScene, screen: pygame.Surface, text: str, column: in
     surface = game.font.render_text(text, color_row=font_row_for_exe_colour(exe_colour))
     screen.blit(surface, (game.camera.to_screen_x(column * FONT_GLYPH_SIZE + offset_x),
                           game.camera.to_screen_y(row * FONT_GLYPH_SIZE)))
+
+
+class FelixRespawnWatcher:
+    """Spots the tick Felix leaves the hit sequence (FUN_0040c1a0's respawn).
+
+    Detected as a transition because Felix owns the respawn and exposes no event for it.
+    """
+
+    def __init__(self) -> None:
+        self._was_in_hit_sequence = False
+
+    def has_respawned(self, felix) -> bool:
+        is_in_hit_sequence = felix.is_in_hit_sequence
+        has_respawned = self._was_in_hit_sequence and not is_in_hit_sequence
+        self._was_in_hit_sequence = is_in_hit_sequence
+        return has_respawned
+
+
+def _tick_ralph(game: GameScene) -> None:
+    """Tick Ralph and act on his events: bricks to spawn, a drop hazard to place."""
+    events = game.ralph.tick(game.building, game.level, game.sound)
+    for brick_x, brick_y in events.brick_spawns:
+        game.bricks.spawn(brick_x, brick_y)
+    if events.is_drop_hazard_requested:
+        game.hazards.request_drop(game.ralph, game.building, get_level_config(game.level))
 
 
 def _enter_play(game: GameScene) -> GamePhase:
@@ -111,7 +137,9 @@ class LevelStartPhase(GamePhase):
             self._tick_climb(game)
             return None
 
-        # Ralph stands idle and unticked through the countdown (Ruling 14).
+        # Ralph's logic stands still through the countdown (Ruling 14); his
+        # animation still steps, as FUN_0040ed40 steps every node.
+        game.ralph.animate()
         self.ready_ticks_remaining -= 1
         if self.ready_ticks_remaining > 0:
             return None
@@ -135,12 +163,12 @@ class PlayPhase(GamePhase):
     """Normal play: Felix, Nicelanders, Ralph, then bricks and hazards, each tick."""
 
     def __init__(self) -> None:
-        self._was_felix_in_hit_sequence = False
+        self._respawn_watcher = FelixRespawnWatcher()
 
     def tick(self, game: GameScene) -> GamePhase | None:
         game.felix.tick(game.input_handler, game.building, game.sound,
                         is_spot_threatened=lambda hitbox: self._is_spot_threatened(game, hitbox))
-        has_respawned = self._has_felix_respawned(game)
+        has_respawned = self._respawn_watcher.has_respawned(game.felix)
         # Ruling 13: the game ends after the last death plays out, not on the fatal hit.
         if game.felix.is_game_over:
             game.end_game()
@@ -149,18 +177,18 @@ class PlayPhase(GamePhase):
         # them (FUN_0040e220); they stay drawn where they stopped.
         if game.felix.is_in_hit_sequence:
             return None
+        if has_respawned:
+            # FUN_0040c1a0 -> FUN_0040e220, before Ralph's handler runs this tick.
+            game.ralph.restart_patrol()
 
         if game.felix.last_fixed_points:
             game.nicelanders.on_window_fixed(
                 game.building.cell(game.felix.local_row, game.felix.column))
-        if game.nicelanders.tick(game.building, game.felix, game.sound):
+        if game.nicelanders.tick(game.building, game.felix,
+                                 game.ralph.is_patrolling, game.sound):
             game.ralph.start_rage()
 
-        events = game.ralph.tick(game.building, game.level, game.sound)
-        for brick_x, brick_y in events.brick_spawns:
-            game.bricks.spawn(brick_x, brick_y)
-        if events.is_drop_hazard_requested:
-            game.hazards.request_drop(game.ralph, game.building, get_level_config(game.level))
+        _tick_ralph(game)
 
         game.bricks.tick(game.building, game.felix, game.level, game.sound)
         if has_respawned:
@@ -172,6 +200,8 @@ class PlayPhase(GamePhase):
             return None
         if game.building.is_last_section:
             return LevelEndPhase()
+        # FUN_0040bc80 clears the section on the fixing tick itself.
+        _clear_section(game)
         return SectionClearPhase()
 
 
@@ -180,22 +210,18 @@ class PlayPhase(GamePhase):
         """Respawn predicate: a falling brick or drop-hazard is bearing down on the spot."""
         return game.bricks.is_falling_toward(hitbox) or game.hazards.is_threatening(hitbox)
 
-    def _has_felix_respawned(self, game: GameScene) -> bool:
-        """True on the tick Felix leaves the hit sequence (FUN_0040c1a0 -> FUN_00406db0).
-
-        Detected as a transition because Felix owns the respawn and exposes no event for it.
-        """
-        is_in_hit_sequence = game.felix.is_in_hit_sequence
-        has_respawned = self._was_felix_in_hit_sequence and not is_in_hit_sequence
-        self._was_felix_in_hit_sequence = is_in_hit_sequence
-        return has_respawned
 
 
 class SectionClearPhase(GamePhase):
-    """Ralph poses, then climbs to the next section and the camera scrolls after him."""
+    """Ralph poses, then climbs to the next section and the camera scrolls after him.
+
+    [EXE] Game state 5 (FUN_00408810). Its entry puts Ralph in the climb state
+    (FUN_0040e0e1), which first waits 0x78 ticks in the pose FUN_0040e2b0 set on
+    the fixing tick; then he climbs, sound 0x1d plays as he reaches the ledge,
+    the camera scrolls 2 px/tick, and play resumes once it arrives.
+    """
 
     def __init__(self) -> None:
-        self.has_started = False
         self.pose_ticks = 0
         self.is_climbing = False
         self.is_scrolling = False
@@ -205,9 +231,6 @@ class SectionClearPhase(GamePhase):
         return not self.is_climbing and not self.is_scrolling
 
     def tick(self, game: GameScene) -> GamePhase | None:
-        if not self.has_started:
-            self._start(game)
-
         if self.is_posing:
             # Ticked for the pose animation; Ralph throws nothing while posing.
             game.ralph.tick(game.building, game.level, game.sound)
@@ -215,7 +238,8 @@ class SectionClearPhase(GamePhase):
         if self.is_climbing:
             self._tick_climb(game)
             return None
-        # Ralph stands idle and unticked through the scroll (Ruling 14).
+        # Ralph's logic stands still through the scroll (Ruling 14); his animation steps.
+        game.ralph.animate()
         return self._tick_scroll(game)
 
     def _tick_climb(self, game: GameScene) -> None:
@@ -223,16 +247,14 @@ class SectionClearPhase(GamePhase):
         if not events.is_climb_finished:
             return
         game.ralph.idle()
+        game.sound.play_sound_index(SECTION_CLIMB_DONE_SOUND)
         self.is_climbing = False
         self.is_scrolling = True
 
-    def _start(self, game: GameScene) -> None:
-        self.has_started = True
-        _clear_section(game)
-
     def _tick_pose(self, game: GameScene) -> GamePhase | None:
+        """Ralph's climb wait: the timer runs out on its 0x78th tick and he climbs the next."""
         self.pose_ticks += 1
-        if self.pose_ticks < RALPH_SECTION_POSE_TICKS:
+        if self.pose_ticks < RALPH_SECTION_CLIMB_WAIT_TICKS:
             return None
         game.building.advance_section()
         game.ralph.start_climb(game.building, game.ralph.y, sound=game.sound)
@@ -244,6 +266,11 @@ class SectionClearPhase(GamePhase):
         has_arrived = game.camera.scroll_toward(target_scroll_y, SECTION_SCROLL_SPEED)
         if not has_arrived:
             return None
+        # FUN_0040cac0 ends the pie's invulnerability as Felix enters the new section.
+        game.felix.end_invulnerability()
+        # TODO: FUN_0040cac0 starts a jump-up (FUN_0040bea0, sound 0xf) from the new
+        # section's floor point (floor +0x2a8 - 1, +0x2ac, filled indirectly; not
+        # decoded) and play resumes once he lands; we place him on row 0 at once.
         game.felix.place_at(0, game.felix.column, game.building)
         return _enter_play(game)
 
@@ -276,12 +303,13 @@ class LevelEndPhase(GamePhase):
         self.popup_rise_px = 0
         self.is_popup_up = True
         self.countdown_ticks = LEVEL_END_COUNTDOWN_TICKS
+        self._respawn_watcher = FelixRespawnWatcher()
 
     def tick(self, game: GameScene) -> GamePhase | None:
         if not self.has_started:
             self.has_started = True
             self._start(game)
-        self._tick_play(game)
+        self._tick_play(game, self._respawn_watcher)
         if game.felix.is_game_over:
             # Unreachable with exe timings (the death takes longer than the wait),
             # but a finished death sequence always ends the game.
@@ -306,20 +334,25 @@ class LevelEndPhase(GamePhase):
         # FUN_00409ac0 hides the pie and its Nicelander; FUN_004084c0 only spawns
         # Nicelanders while Ralph patrols (state 0/1), so none come back.
         game.nicelanders.clear()
-        game.ralph.start_section_clear()
-        # FUN_00409ac0 stops sound 0x19 (the pie's invulnerability tune) and plays 0x16.
+        game.ralph.start_section_clear(is_last_section=True)
+        # FUN_00409ac0 stops sound 0x19 (the bonus-life sound) and plays 0x16.
         game.sound.stop_sound_index(SECTION_CLEAR_STOPPED_SOUND)
         game.sound.play_music_index(SECTION_CLEAR_MUSIC, is_looping=False)
 
     @staticmethod
-    def _tick_play(game: GameScene) -> None:
-        """The state 3 updates that still have something to do: Felix, Ralph's pose, bricks, hazards."""
+    def _tick_play(game: GameScene, respawn_watcher: FelixRespawnWatcher) -> None:
+        """The state 3 updates that still have something to do: Felix, Ralph, bricks, hazards."""
         game.felix.tick(game.input_handler, game.building, game.sound,
                         is_spot_threatened=lambda hitbox: PlayPhase._is_spot_threatened(game, hitbox))
+        has_respawned = respawn_watcher.has_respawned(game.felix)
         # FUN_0040e1d0 freezes Ralph and the bricks for the hit, as in PlayPhase.
         if game.felix.is_in_hit_sequence:
             return
-        game.ralph.tick(game.building, game.level, game.sound)
+        if has_respawned:
+            # FUN_0040e220 restarts Ralph's walk even here (his pose is not state 6),
+            # so he can patrol, pound and throw again before the roof.
+            game.ralph.restart_patrol()
+        _tick_ralph(game)
         game.bricks.tick(game.building, game.felix, game.level, game.sound)
         game.hazards.tick(game.building, game.felix, game.sound)
 
@@ -343,7 +376,8 @@ def _clear_section(game: GameScene) -> None:
     clear_sill_obstacles(game.building)
     game.nicelanders.clear()
     game.felix.state = FelixState.CELEBRATING
-    game.ralph.start_section_clear()
-    # TODO: FUN_00409ac0 also stops sound 0x19 on every clear, as LevelEndPhase does.
-    # FUN_00409ac0 plays the jingle as music, replacing sound 14 until play resumes.
+    game.ralph.start_section_clear(is_last_section=game.building.is_last_section)
+    # FUN_00409ac0 stops sound 0x19 (the bonus-life sound) on every clear,
+    # then plays the jingle as music, replacing sound 14 until play resumes.
+    game.sound.stop_sound_index(SECTION_CLEAR_STOPPED_SOUND)
     game.sound.play_music_index(SECTION_CLEAR_MUSIC, is_looping=False)

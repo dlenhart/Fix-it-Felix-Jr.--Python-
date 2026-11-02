@@ -313,7 +313,10 @@ class HazardField:
         felix_hitbox = felix.hitbox()
         for bird in self._birds:
             if bird.rect().colliderect(felix_hitbox) and felix.hit(sound):
+                if sound:
+                    sound.play_sfx("felix_hit")  # FUN_00406bb0: sound 0
                 return True
+        # FUN_004073f0 plays no sound for a drop-hazard hit.
         for hazard in self._drop_hazards:
             # [USER] harmless while falling; the exe's FUN_004073f0 tests the touch every tick.
             if hazard.is_blinking or not hazard.is_landed:

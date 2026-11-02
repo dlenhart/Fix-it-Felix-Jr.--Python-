@@ -401,3 +401,28 @@ def test_sill_obstacle_rect_follows_the_bounce():
         field.tick(building, bystander)
         lifts.append(sill_obstacle_rect(building, cell).y - resting_y)
     assert lifts == [-4] * 4 + [-2] * 4 + [-1] * 4 + [0]
+
+
+class SoundRecorder:
+    def __init__(self):
+        self.played = []
+
+    def play_sfx(self, name):
+        self.played.append(name)
+
+
+def test_bird_hit_plays_sound_0():
+    building, felix, field = bird_field_overlapping_felix()
+    sound = SoundRecorder()
+    assert field.tick(building, felix, sound) is True
+    assert sound.played == ["felix_hit"]  # FUN_00406bb0
+
+
+def test_drop_hazard_hit_is_silent():
+    building, field, hazard = drop_one()
+    away = StubFelix(pygame.Rect(0, 0, 1, 1))
+    for _ in range(200):
+        field.tick(building, away)
+    sound = SoundRecorder()
+    assert field.tick(building, StubFelix(felix_box_on(hazard)), sound) is True
+    assert sound.played == []  # FUN_004073f0 plays nothing

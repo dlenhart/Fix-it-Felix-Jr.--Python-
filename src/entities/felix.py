@@ -35,6 +35,10 @@ FELIX_HIT_FALL_BELOW_STREET = 0x28  # [EXE] FUN_0040c1a0: building bottom + 0x28
 FELIX_RESPAWN_DELAY_TICKS = 60  # [EXE] FUN_0040c1a0 (0x3c)
 FELIX_FINAL_HIT_SETTLE_FRAME_INDEX = 7  # [EXE] FUN_0040c1a0 waits for anim frame 7
 FELIX_GAME_OVER_DELAY_TICKS = 120  # [EXE] FUN_0040c1a0 (0x78) before the game-over state
+# [EXE] FUN_0040ca00 / FUN_0040c940: a hit with no spare lives calls FUN_0040f4a0(0)
+# with ESI 0x15, replacing the in-level music; 0x13 there is the animation id.
+FINAL_HIT_MUSIC = 0x15
+BONUS_LIFE_STOPPED_SOUND = 0x16  # [EXE] FUN_004063d0
 
 
 def _frame_display_ticks(hold_ticks):
@@ -139,11 +143,18 @@ class Felix:
         self._prev_pos_y = self._pos_y
         self._is_placed = True
 
-    def add_score(self, points):
+    def add_score(self, points, sound=None):
+        """Add points; each multiple of 5000 crossed is a bonus life.
+
+        [EXE] FUN_004063d0 stops sound 22 (the section jingle) and plays sound 25.
+        """
         self.score += points
         while self.score >= self._next_bonus_at:
             self.lives += 1
             self._next_bonus_at += BONUS_LIFE_THRESHOLD
+            if sound:
+                sound.stop_sound_index(BONUS_LIFE_STOPPED_SOUND)
+                sound.play_sfx("bonus_life")
 
     def hit(self, sound=None):
         """Start the hit sequence (FUN_0040ca00). Returns False if it did not land.
@@ -167,7 +178,7 @@ class Felix:
         self.lives = 0
         self.state = FelixState.FINAL_HIT_ANIM
         if sound:
-            sound.play_sfx("death")
+            sound.play_music_index(FINAL_HIT_MUSIC, is_looping=False)
         return True
 
     def cancel_hit_sequence(self):
@@ -184,10 +195,16 @@ class Felix:
         if self.is_in_hit_sequence:
             self.state = FelixState.IDLE
 
+    def end_invulnerability(self):
+        """Drop the pie's invulnerability early (FUN_0040cac0 on entering a new section)."""
+        self._invulnerable_ticks_remaining = 0
+
     def activate_invulnerability(self, sound=None):
+        """Felix took the pie: FUN_0040b5e0 plays sound 2 and the sound 24 tune."""
         self._invulnerable_ticks_remaining = INVULNERABLE_TICKS
         if sound:
-            sound.play_sfx("super_felix")
+            sound.play_sfx("pie_pickup")
+            sound.play_sfx("invulnerable_tune")
 
     def world_pos(self, alpha=1.0):
         """Interpolated (center x, feet y) in world coordinates."""
@@ -229,7 +246,7 @@ class Felix:
         elif self.state == FelixState.HAMMERING:
             self._tick_hammering()
         elif self.state == FelixState.HAMMER_EXTENDED:
-            self._tick_hammer_extended(building)
+            self._tick_hammer_extended(building, sound)
         elif self.state == FelixState.HIT_ANIM:
             self._tick_hit_anim()
         elif self.state == FelixState.HIT_FALL:
@@ -373,7 +390,7 @@ class Felix:
         self.state = FelixState.HAMMER_EXTENDED
         self._state_ticks = 0
 
-    def _tick_hammer_extended(self, building):
+    def _tick_hammer_extended(self, building, sound):
         # The fix (FUN_0040bc80 -> FUN_00409a70) plays no sound either.
         self._state_ticks += 1
         if self._state_ticks < HAMMER_EXTENDED_TICKS:
@@ -383,7 +400,7 @@ class Felix:
         if not points:
             return
         self.last_fixed_points = points
-        self.add_score(points)
+        self.add_score(points, sound)
 
     def _tick_hit_anim(self):
         self._hit_anim_ticks += 1

@@ -79,9 +79,7 @@ class HighScoreScene(Scene):
             return True
         return self.final_score > self.scores[-1]["score"]
 
-    def on_enter(self):
-        self.sound.play_music("high_score", loop=False)
-
+    # [EXE] initials entry (state 8, FUN_00407f50) plays no music or sounds.
     def on_exit(self):
         self.sound.stop_music()
 
@@ -92,17 +90,14 @@ class HighScoreScene(Scene):
             if input_handler.is_just_pressed(Action.UP):
                 self._letter_index = (self._letter_index - 1) % len(LETTER_OPTIONS)
                 self._initials[self._cursor] = LETTER_OPTIONS[self._letter_index]
-                self.sound.play_sfx("menu_select")
             elif input_handler.is_just_pressed(Action.DOWN):
                 self._letter_index = (self._letter_index + 1) % len(LETTER_OPTIONS)
                 self._initials[self._cursor] = LETTER_OPTIONS[self._letter_index]
-                self.sound.play_sfx("menu_select")
             # [USER] ENTER confirms as well as SPACE.
             elif (input_handler.is_just_pressed(Action.JUMP) or
                     input_handler.is_just_pressed(Action.START)):
                 self._cursor += 1
                 self._letter_index = FIRST_LETTER_INDEX
-                self.sound.play_sfx("menu_confirm")
                 if self._cursor >= INITIALS_LENGTH:
                     self._save_score()
                     self._is_entering = False

@@ -23,6 +23,8 @@ class SpriteNode:
         self.is_visible = is_visible
         self.is_paused = is_paused
         self.is_finished = False
+        # +0x1c: the last tick moved the animation onto a new frame.
+        self.has_frame_changed = False
         self.animation = animation
         self.frame_index = 0
         self._hold_ticks = animation.frames[0].hold
@@ -53,6 +55,8 @@ class SpriteNode:
         ticks counted from the tick it was set (its first advance check is the
         same tick, after the script).
         """
+        # Cleared for every node first, animating or not.
+        self.has_frame_changed = False
         is_animating = (self.is_visible and not self.is_paused and not self.is_finished
                         and self.animation.mode != AnimationMode.STATIC)
         if not is_animating:
@@ -61,6 +65,7 @@ class SpriteNode:
             self._hold_ticks -= 1
             return
         self.frame_index += 1
+        self.has_frame_changed = True
         frame_count = len(self.animation.frames)
         if self.frame_index >= frame_count:
             if self.animation.mode == AnimationMode.ONCE:

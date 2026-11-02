@@ -26,7 +26,7 @@ class CutsceneScene(Scene):
         self._ticks = 0
 
     def on_enter(self):
-        self.sound.play_music("cutscene_intro", loop=False)
+        self.sound.play_music("intro", loop=False)
 
     def on_exit(self):
         self.sound.stop_music()

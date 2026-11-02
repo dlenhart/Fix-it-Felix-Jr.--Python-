@@ -39,6 +39,9 @@ class RecordingSound:
     def play_sfx(self, name):
         self.played.append(name)
 
+    def play_music_index(self, index, is_looping):
+        self.played.append(("music", index, is_looping))
+
 
 def make_felix(local_row=0, column=2):
     building = Building(1, Random(0))
@@ -475,7 +478,7 @@ def test_last_life_never_respawns_and_ends_in_game_over():
     assert f.hit(sound) is True
     assert f.state == FelixState.FINAL_HIT_ANIM
     assert f.lives == 0  # gone from the HUD at the fatal hit, not at GAME OVER
-    assert sound.played == ["death"]
+    assert sound.played == [("music", 0x15, False)]  # FUN_0040ca00, on the music channel
     states = set()
     for _ in range(5000):
         if f.is_game_over:
@@ -489,7 +492,7 @@ def test_last_life_never_respawns_and_ends_in_game_over():
     assert FelixState.IDLE not in states
     assert FelixState.HIT_FALL not in states
     assert f.lives == 0
-    assert sound.played == ["death"]
+    assert sound.played == [("music", 0x15, False)]  # FUN_0040ca00, on the music channel
     tick_n(f, b, 500)
     assert f.is_game_over
     assert f.lives == 0
@@ -517,7 +520,7 @@ def test_invulnerable_ignores_hit_and_expires_after_480_ticks():
     f, b = make_felix()
     sound = RecordingSound()
     f.activate_invulnerability(sound)
-    assert "super_felix" in sound.played
+    assert sound.played[-2:] == ["pie_pickup", "invulnerable_tune"]  # FUN_0040b5e0: sounds 2, 24
     assert f.is_invulnerable
     assert f.hit() is False
     assert f.lives == INITIAL_LIVES
@@ -550,3 +553,25 @@ def test_sound_map_uses_the_exe_indices():
     assert SOUND_MAP["obstacle_bump"] == "sound6"  # FUN_004097d0: index 6
     for name in ("felix_move", "hammer_extended", "hammer_hit", "window_fixed"):
         assert name not in SOUND_MAP  # no exe basis
+
+
+class BonusSoundRecorder:
+    def __init__(self):
+        self.calls = []
+
+    def play_sfx(self, name):
+        self.calls.append(name)
+
+    def stop_sound_index(self, index):
+        self.calls.append(("stop", index))
+
+
+def test_bonus_life_stops_the_jingle_and_plays_sound_25():
+    felix = Felix()
+    sound = BonusSoundRecorder()
+    lives = felix.lives
+    felix.add_score(4900, sound)
+    assert sound.calls == []
+    felix.add_score(100, sound)
+    assert felix.lives == lives + 1
+    assert sound.calls == [("stop", 0x16), "bonus_life"]  # FUN_004063d0

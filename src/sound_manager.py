@@ -2,42 +2,38 @@ import os
 import pygame
 from constants import ASSET_DIR
 
+# Every entry is [EXE]: the index the exe plays for that event (inline buffer
+# rewinds through DAT_0041b244, or FUN_0040f4a0 for music).
 SOUND_MAP = {
-    # Ghidra-confirmed: FUN_0040b510 plays index 1 when a hammer swing starts at a broken window.
+    # FUN_0040d490 (brick) / FUN_00406bb0 (bird): the hazard hits a Felix who is not invulnerable.
+    "felix_hit": "sound0",
+    # FUN_0040b510: a hammer swing starts at a broken window.
     "hammer_swing": "sound1",
-    # Ghidra-confirmed: FUN_004097d0 plays index 6 when a jump up bumps a sill obstacle.
-    "obstacle_bump": "sound6",
-    # Ghidra-confirmed: FUN_0040c3d0 case 5 (start of the jump up, FUN_0040bea0) plays index 0x0F.
-    "jump": "sound15",
-    # Ghidra-confirmed: FUN_0040c3d0 case 6 (start of the drop down, FUN_0040c0d0) plays index 0x11.
-    "drop_down": "sound17",
-    # Ghidra-confirmed: FUN_00409840 plays index 5 when it damages an intact window.
+    # FUN_0040b5e0: Felix takes the pie (with "invulnerable_tune").
+    "pie_pickup": "sound2",
+    # FUN_0040d490: a brick hits an invulnerable Felix and bounces off.
+    "brick_bounce": "sound3",
+    # FUN_00409840: a window takes damage while intact.
     "window_break": "sound5",
-    "pie_pickup": "sound16",
-    "felix_catchphrase": "sound2",
-    "ralph_catchphrase": "sound0",
-    "super_felix": "sound25",
-    "section_clear": "sound22",
-    "score_bonus": "sound23",
-    "pie_throw": "sound18",
-    "level_transition": "sound13",
-    "ralph_falling": "sound29",
-    "bonus_life": "sound10",
-    "game_over": "sound21",
-    "menu_select": "sound26",
-    "menu_confirm": "sound27",
-    "bonus_score_alt": "sound28",
-    "death": "sound19",             # Ghidra-confirmed: index 0x13 = death/game over
+    # FUN_004097d0: a jump up bumps a sill obstacle.
+    "obstacle_bump": "sound6",
+    # FUN_0040c3d0 cases 4/5 (FUN_0040bea0) and FUN_0040cac0: the jump up.
+    "jump": "sound15",
+    # FUN_0040c3d0 case 6 (FUN_0040c0d0): the drop down.
+    "drop_down": "sound17",
+    # FUN_004076e0: a new game starts.
+    "new_game": "sound20",
+    # FUN_0040b5e0: the pie's 8 s invulnerability tune.
+    "invulnerable_tune": "sound24",
+    # FUN_004063d0: the score crosses a multiple of 5000 (a bonus life).
+    "bonus_life": "sound25",
 }
 
 MUSIC_MAP = {
-    "cutscene_intro": "sound11",
-    "level_clear": "sound12",
-    "high_score": "sound24",
-    "gameplay_a": "sound7",
-    "gameplay_b": "sound8",
+    # FUN_00402abd / FUN_00401000: the intro (ESI = 7).
+    "intro": "sound7",
+    # FUN_00402258 / FUN_00402b94: the title and attract screens, played once.
     "title": "sound9",
-    "extended": "sound14",
 }
 
 
@@ -95,12 +91,27 @@ class SoundManager:
         """
         self._indexed_sound(index).play()
 
+    def restart_sound_index(self, index):
+        """Play the exe's sound index from the start, cutting off a copy still playing.
+
+        FUN_0040d970 / FUN_0040dd90 rewind the sound's own buffer (position 0,
+        playing 1) rather than starting a second copy.
+        Raises FileNotFoundError when the wav is missing.
+        """
+        sound = self._indexed_sound(index)
+        sound.stop()
+        sound.play()
+
     def stop_sound_index(self, index):
         """Stop every playing copy of the exe's sound index (FUN_00410140).
 
-        Raises FileNotFoundError when the wav is missing.
+        The exe's music is one of the same sound buffers, so this also stops the
+        music when it is that index (the current-music index stays set, as in
+        the exe). Raises FileNotFoundError when the wav is missing.
         """
         self._indexed_sound(index).stop()
+        if index == self._current_music_index:
+            pygame.mixer.music.stop()
 
     def play_music_index(self, index, is_looping):
         """Replace the current music with the exe's sound index.

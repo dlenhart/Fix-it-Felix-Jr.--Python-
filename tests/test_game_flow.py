@@ -154,10 +154,56 @@ def test_section_clear_jingle_replaces_the_music_until_play_resumes():
     fix_section(game)
     game.tick(MockInput())
     assert isinstance(game.phase, SectionClearPhase)
-    game.tick(MockInput())  # the phase starts the clear on its first tick
-    assert game.sound.music() == [(0xE, True), (0x16, False)]
+    assert game.sound.music() == [(0xE, True), (0x16, False)]  # on the fixing tick
+    # FUN_00409ac0 stops the pie's invulnerability tune on every clear, before the jingle.
+    jingle_call = game.sound.calls.index(("play_music_index", 0x16, False))
+    assert ("stop_sound_index", 0x19) in game.sound.calls[:jingle_call]
     reach_play(game)
     assert game.sound.music() == [(0xE, True), (0x16, False), (0xE, True)]
+
+
+def test_final_hit_plays_sound_21_as_music_and_game_over_is_silent():
+    manager, game = make_game()
+    game.sound = RecordingSound()
+    reach_play(game)
+    game.felix.lives = 1
+    spawn_brick_on_felix(game)
+    game.tick(MockInput())
+    assert game.sound.music()[-1] == (0x15, False)  # FUN_0040ca00 replaces sound 14
+    calls_at_hit = len(game.sound.calls)
+    tick_until(game, lambda: manager.current is not game)
+    assert isinstance(manager.current, GameOverScene)
+    assert game.sound.calls[calls_at_hit:] == []  # exe states 7/8 never touch the music
+
+
+def test_section_transition_follows_the_exe_state_5_schedule():
+    _, game = make_game()
+    game.sound = RecordingSound()
+    reach_play(game)
+    fix_section(game)
+    game.tick(MockInput())  # the fixing tick clears the section
+    assert isinstance(game.phase, SectionClearPhase)
+    assert game.ralph.state == RalphState.SECTION_POSE
+    ledge_before = game.ralph.y
+    for _ in range(0x78 - 1):
+        game.tick(MockInput())
+        assert game.ralph.state == RalphState.SECTION_POSE
+    game.tick(MockInput())  # the climb timer runs out: anim 27, no move yet
+    assert game.ralph.state == RalphState.CLIMB and game.ralph.y == ledge_before
+    tick_until(game, lambda: game.ralph.state == RalphState.IDLE)
+    assert ("play_sound_index", 0x1D) in game.sound.calls  # FUN_00408810, at the ledge
+    reach_play(game)
+
+
+def test_entering_a_new_section_ends_invulnerability():
+    _, game = make_game()
+    reach_play(game)
+    game.felix.activate_invulnerability()
+    fix_section(game)
+    game.tick(MockInput())
+    assert isinstance(game.phase, SectionClearPhase)
+    reach_play(game)
+    assert not game.felix.is_invulnerable  # FUN_0040cac0
 
 
 def test_last_section_goes_to_level_end_then_next_level_keeps_lives_and_score():
@@ -275,6 +321,27 @@ def test_hit_freezes_ralph_and_bricks_until_respawn():
     assert game.felix.lives == lives_before - 1
     game.tick(MockInput())
     assert frozen_world(game) != before
+
+
+def test_respawn_restarts_ralphs_patrol():
+    _, game = make_game()
+    reach_play(game)
+    tick_until(game, lambda: game.ralph.state == RalphState.POUND)
+    spawn_brick_on_felix(game)
+    game.tick(MockInput())
+    assert game.felix.is_in_hit_sequence
+    tick_until(game, lambda: not game.felix.is_in_hit_sequence)
+    assert game.ralph.state == RalphState.WALK  # FUN_0040e220 -> FUN_0040df60(0)
+
+
+def test_ralph_animates_through_the_ready_countdown():
+    _, game = make_game()
+    tick_until(game, lambda: isinstance(game.phase, LevelStartPhase) and game.phase.is_ready_countdown)
+    shown = set()
+    for _ in range(30):
+        game.tick(MockInput())
+        shown.add(game.ralph.frame_id)
+    assert shown == {80, 81}  # anim 26, as FUN_0040dbb0 leaves him on the ledge
 
 
 def test_respawn_avoids_a_frozen_brick_above_the_hit_cell():

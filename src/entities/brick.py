@@ -125,9 +125,14 @@ class BrickField:
             if brick.rect().colliderect(felix.hitbox()):
                 if felix.is_invulnerable:
                     brick.start_bounce(self._rng)
+                    if sound:
+                        sound.play_sfx("brick_bounce")  # FUN_0040d490: sound 3
                     continue
                 # The brick vanishes even if Felix is already in the hit sequence (ruling R3).
-                was_felix_hit |= bool(felix.hit(sound))
+                if felix.hit(sound):
+                    was_felix_hit = True
+                    if sound:
+                        sound.play_sfx("felix_hit")  # FUN_0040d490: sound 0, then FUN_0040ca00
                 brick.is_active = False
                 continue
             if self._try_break_window(brick, building, level, sound):

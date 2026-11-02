@@ -69,3 +69,19 @@ def test_missing_music_file_raises(sound, monkeypatch):
     monkeypatch.setattr(sound_manager, "ASSET_DIR", "/nonexistent")
     with pytest.raises(FileNotFoundError):
         manager.play_music_index(14, is_looping=True)
+
+
+def test_stopping_the_current_musics_index_stops_the_music(sound, monkeypatch):
+    manager, music = sound
+    stopped = []
+    monkeypatch.setattr(music, "stop", lambda: stopped.append(True), raising=False)
+    manager.play_music_index(22, is_looping=False)
+    manager.stop_sound_index(22)
+    assert stopped == [True]
+    manager.stop_sound_index(5)
+    assert stopped == [True]
+
+
+def test_every_mapped_sound_file_exists():
+    for filename in list(sound_manager.SOUND_MAP.values()) + list(sound_manager.MUSIC_MAP.values()):
+        assert os.path.exists(os.path.join(sound_manager.ASSET_DIR, f"{filename}.wav")), filename
