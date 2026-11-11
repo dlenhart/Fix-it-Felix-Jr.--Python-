@@ -4,8 +4,10 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from entities.building import Building  # noqa: E402
-from entities.ralph import DropHazardSchedule, Ralph, RalphState  # noqa: E402
+from world.building import Building  # noqa: E402
+from entities.drop_hazard_schedule import DropHazardSchedule  # noqa: E402
+from entities.ralph import Ralph  # noqa: E402
+from entities.ralph_state import RalphState  # noqa: E402
 
 
 def make_ralph(seed=0, level=5):
@@ -396,3 +398,29 @@ def test_respawn_restart_mid_walk_out_turns_for_72():
     assert ralph.x > 120  # on the way out to 169
     ralph.restart_patrol()
     assert next_walk_target(ralph, building) == 72
+
+
+def walk_to_next_stop(ralph, building):
+    for _ in range(500):
+        ralph.tick(building, 1)
+        if ralph.state == RalphState.POUND:
+            return
+    raise AssertionError("Ralph never reached a stop")
+
+
+def finish_pound(ralph, building):
+    for _ in range(500):
+        ralph.tick(building, 1)
+        if ralph.state == RalphState.WALK:
+            return
+    raise AssertionError("Ralph never finished pounding")
+
+
+def test_has_stopped_at_center_follows_the_last_stop():
+    ralph, building = make_ralph(level=1)
+    assert ralph.has_stopped_at_center  # placed at the center
+    walk_to_next_stop(ralph, building)
+    assert ralph.x == 72 and not ralph.has_stopped_at_center
+    finish_pound(ralph, building)
+    walk_to_next_stop(ralph, building)
+    assert ralph.x == 120 and ralph.has_stopped_at_center

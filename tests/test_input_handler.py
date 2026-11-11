@@ -8,9 +8,9 @@ os.environ["SDL_AUDIODRIVER"] = "dummy"
 import pygame  # noqa: E402
 import pytest  # noqa: E402
 
-from input_handler import (  # noqa: E402
-    GAMEPAD_BUTTON_MAP, HAT_MAP, KEYBOARD_MAP, Action, InputHandler,
-)
+from controls.action import Action  # noqa: E402
+from controls.input_handler import InputHandler  # noqa: E402
+from controls.key_bindings import GAMEPAD_BUTTON_MAP, HAT_MAP, KEYBOARD_MAP  # noqa: E402
 
 pygame.init()
 

@@ -6,13 +6,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 os.environ["SDL_AUDIODRIVER"] = "dummy"
 import pygame  # noqa: E402
+import pytest  # noqa: E402
 
 pygame.init()
 pygame.display.set_mode((1, 1))
 
-from font_renderer import FontRenderer, scale_text_to_fit  # noqa: E402
-from sprite_data import FONT_GLYPH_SIZE  # noqa: E402
-from sprite_sheet import SpriteSheet  # noqa: E402
+from graphics.font_renderer import FontRenderer  # noqa: E402
+from graphics.text_layout import scale_text_to_fit  # noqa: E402
+from exe_data.sprite_data import FONT_GLYPH_SIZE  # noqa: E402
+from graphics.sprite_sheet import SpriteSheet  # noqa: E402
 
 SUPPORTED_CHARS = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 renderer = FontRenderer(SpriteSheet())
@@ -44,8 +46,25 @@ def test_render_text_uppercases_and_sizes_by_length():
     assert pixels_of(surface) == pixels_of(renderer.render_text("ABC"))
 
 
-def test_unsupported_char_leaves_a_blank_cell():
-    assert not has_visible_pixel(renderer.render_text("~"))
+def test_unsupported_char_raises():
+    with pytest.raises(ValueError, match="no font glyph for '~'"):
+        renderer.render_text("A~B")
+
+
+def test_space_renders_as_a_blank_cell():
+    surface = renderer.render_text(" ")
+    assert surface.get_size() == (FONT_GLYPH_SIZE, FONT_GLYPH_SIZE)
+    assert not has_visible_pixel(surface)
+
+
+def test_unknown_colour_row_raises():
+    with pytest.raises(ValueError, match="unknown font colour row"):
+        renderer.render_text("A", color_row=99)
+
+
+def test_opaque_glyph_cell_outside_the_exe_font_raises():
+    with pytest.raises(ValueError):
+        renderer.render_opaque_glyph_cell("a", 6)  # 0x61 is past the exe's 0x5d
 
 
 def test_opaque_glyph_cell_has_no_transparent_pixel_and_is_cached():

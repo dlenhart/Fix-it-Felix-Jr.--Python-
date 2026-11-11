@@ -1,10 +1,11 @@
-import pygame
-from scene_manager import Scene
-from constants import GAME_WIDTH, GAME_HEIGHT, BLACK, TITLE_BLINK_TICKS
-from input_handler import Action
-from sprite_sheet import SpriteSheet
-from sound_manager import SoundManager
-from font_renderer import FontRenderer
+from audio.sound_manager import SoundManager
+from constants.display import BLACK, GAME_WIDTH
+from constants.screens import TITLE_BLINK_TICKS
+from controls.action import Action
+from core.scene import Scene
+from graphics.font_renderer import FontRenderer
+from graphics.sprite_sheet import SpriteSheet
+from graphics.text_layout import draw_centered_text
 
 
 class TitleScene(Scene):
@@ -46,15 +47,11 @@ class TitleScene(Scene):
             rect = logo.get_rect(center=(GAME_WIDTH // 2, 80))
             screen.blit(logo, rect)
         except (KeyError, IndexError):
-            title = self.font.render_text("FIX-IT FELIX JR", color_row=0)
-            rect = title.get_rect(center=(GAME_WIDTH // 2, 80))
-            screen.blit(title, rect)
+            # TODO: fail-fast says let a missing logo raise instead of falling back to text.
+            draw_centered_text(screen, self.font, "FIX-IT FELIX JR", (GAME_WIDTH // 2, 80))
 
-        copyright_text = self.font.render_text("@TOBIKOMI COMPANY 1982", color_row=1)
-        rect = copyright_text.get_rect(center=(GAME_WIDTH // 2, 130))
-        screen.blit(copyright_text, rect)
+        draw_centered_text(screen, self.font, "@TOBIKOMI COMPANY 1982", (GAME_WIDTH // 2, 130),
+                           color_row=1)
 
         if self._show_press_start:
-            start_text = self.font.render_text("PRESS START", color_row=0)
-            rect = start_text.get_rect(center=(GAME_WIDTH // 2, 250))
-            screen.blit(start_text, rect)
+            draw_centered_text(screen, self.font, "PRESS START", (GAME_WIDTH // 2, 250))

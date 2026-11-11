@@ -15,10 +15,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import pygame  # noqa: E402
 
-from camera import Camera  # noqa: E402
-from entities.building import Building  # noqa: E402
-from level_config import FLOOR_PIECE, FloorType  # noqa: E402
-from sprite_sheet import SpriteSheet  # noqa: E402
+from core.camera import Camera  # noqa: E402
+from world.building import Building  # noqa: E402
+from exe_data.level_table import FLOOR_PIECE  # noqa: E402
+from world.level_types import FloorType  # noqa: E402
+from graphics.sprite_sheet import SpriteSheet  # noqa: E402
 
 IMAGE_WIDTH = 240
 MARGIN = 24

@@ -4,6 +4,12 @@ Rebuilding the Fix-It Felix Jr. arcade game in Python/Pygame by reverse-engineer
 
 This document covers the reverse engineering process — how we deconstructed the binary to extract the game constants, physics, state machines, and asset mappings needed to build a faithful recreation.
 
+## Note
+
+The game is fully playable: title, intro, every level with its hazards, the roof ending, game over and the high-score table. Run it with `python3 src/main.py`.
+
+- **TODO: research the opening intro animation; it is probably incorrect.** The cutscene (`src/scenes/cutscene_scene.py`, steps in `src/constants/screens.py`) uses placeholder sprites, text and timings that were never decoded from the exe. Starting points: the intro routine `FUN_00402abd` / `FUN_00401000`, which plays sound 7 (see `MUSIC_MAP` in `src/constants/sounds.py`).
+
 ## The Binary
 
 ```

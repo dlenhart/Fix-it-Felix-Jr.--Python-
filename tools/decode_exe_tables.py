@@ -27,7 +27,7 @@ CELL_PIXELS = 8
 REPO_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 ATLAS_PATH = os.path.join(REPO_ROOT, "Data", "felix0.png")
 OUTPUT_DIR = os.path.join(REPO_ROOT, "docs", "ghidra-output", "pass4")
-EXE_TABLES_PATH = os.path.join(REPO_ROOT, "src", "exe_tables.py")
+EXE_TABLES_PATH = os.path.join(REPO_ROOT, "src", "exe_data", "exe_tables.py")
 
 FRAMES_PER_SHEET = 56
 SHEET_COLUMNS = 8

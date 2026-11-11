@@ -6,13 +6,16 @@ import pygame
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from constants import (  # noqa: E402
+from constants.bricks import (  # noqa: E402
     BRICK_BOUNCE_TICKS, BRICK_FALL_SPEED, BRICK_MAX_LIVE, BRICK_WINDOW_BREAKS_PER_SECTION,
     GROUND_Y,
 )
-from entities.brick import BRICK_WIDTH, Brick, BrickField  # noqa: E402
-from entities.building import Building  # noqa: E402
-from entities.felix import HITBOX_HEIGHT, HITBOX_WIDTH, Felix  # noqa: E402
+from constants.bricks import BRICK_WIDTH  # noqa: E402
+from entities.brick import Brick  # noqa: E402
+from entities.brick_field import BrickField  # noqa: E402
+from world.building import Building  # noqa: E402
+from constants.felix import HITBOX_HEIGHT, HITBOX_WIDTH  # noqa: E402
+from entities.felix import Felix  # noqa: E402
 
 
 class AlwaysNinetyNineRandom:

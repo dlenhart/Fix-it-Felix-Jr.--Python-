@@ -17,7 +17,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import pygame
-from constants import ASSET_DIR
+from paths import ASSET_DIR
 
 pygame.init()
 

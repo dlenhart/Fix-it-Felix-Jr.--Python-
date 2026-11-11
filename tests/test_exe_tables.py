@@ -8,8 +8,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 import pygame
 import pytest
 
-from exe_tables import BUILDING_PIECES, SPRITE_FRAMES
-from sprite_sheet import SpriteSheet
+from exe_data.exe_tables import BUILDING_PIECES, SPRITE_FRAMES
+from graphics.sprite_sheet import SpriteSheet
 
 
 @pytest.fixture

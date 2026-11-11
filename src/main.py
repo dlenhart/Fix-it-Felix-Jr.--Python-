@@ -1,12 +1,18 @@
 import pygame
-from constants import (GAME_WIDTH, GAME_HEIGHT, DISPLAY_WIDTH, DISPLAY_HEIGHT,
-                       RENDER_FPS, TICK_RATE, BLACK, WHITE)
-from scene_manager import SceneManager, Scene
-from input_handler import InputHandler, Action
+
+from constants.display import DISPLAY_HEIGHT, DISPLAY_WIDTH, GAME_HEIGHT, GAME_WIDTH, RENDER_FPS
+from constants.timing import TICK_RATE
+from controls.action import Action
+from controls.input_handler import InputHandler
+from core.scene_manager import SceneManager
+from paths import SCORES_FILE
 from scenes.title_scene import TitleScene
+from storage.score_repository import ScoreRepository
 
 
 def main():
+    # Fail at launch on a damaged score file rather than after the next game.
+    ScoreRepository(SCORES_FILE).load()
     pygame.init()
     display = pygame.display.set_mode((DISPLAY_WIDTH, DISPLAY_HEIGHT))
     pygame.display.set_caption("Fix-It Felix Jr.")

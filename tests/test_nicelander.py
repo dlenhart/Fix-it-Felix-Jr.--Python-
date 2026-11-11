@@ -11,19 +11,23 @@ import pygame  # noqa: E402
 pygame.init()
 pygame.display.set_mode((1, 1))
 
-from entities.building import PANE_SMASHED, Building, CellKind  # noqa: E402
+from constants.building import PANE_SMASHED  # noqa: E402
+from world.building import Building  # noqa: E402
+from world.level_types import CellKind  # noqa: E402
 from entities.felix import Felix  # noqa: E402
-from input_handler import Action  # noqa: E402
-from entities.nicelander import (  # noqa: E402
-    FRAME_START_TICKS, NICELANDER_MAX_CANDIDATES, NICELANDER_REARM_TICKS,
-    NICELANDER_SPAWN_TICKS, NicelanderDirector,
+from controls.action import Action  # noqa: E402
+from constants.nicelanders import (  # noqa: E402
+    NICELANDER_MAX_CANDIDATES, NICELANDER_REARM_TICKS, NICELANDER_SPAWN_TICKS,
 )
-from entities.ralph import RalphState  # noqa: E402
-from scenes.game_phases import PlayPhase, SectionClearPhase  # noqa: E402
-from sprite_data import NICELANDER_HANDOFF_FRAME_INDEX  # noqa: E402
+from entities.nicelander_director import NicelanderDirector  # noqa: E402
+from exe_data.sprite_data import NICELANDER_RISE_FRAME_START_TICKS  # noqa: E402
+from entities.ralph_state import RalphState  # noqa: E402
+from scenes.game.phases.play_phase import PlayPhase  # noqa: E402
+from scenes.game.phases.section_clear_phase import SectionClearPhase  # noqa: E402
+from exe_data.sprite_data import NICELANDER_HANDOFF_FRAME_INDEX  # noqa: E402
 from test_game_flow import MockInput, make_game, reach_play  # noqa: E402
 
-HANDOFF_TICK = FRAME_START_TICKS[NICELANDER_HANDOFF_FRAME_INDEX]
+HANDOFF_TICK = NICELANDER_RISE_FRAME_START_TICKS[NICELANDER_HANDOFF_FRAME_INDEX]
 
 
 def smash_bottom_panes(building, local_rows):
@@ -247,8 +251,8 @@ def test_play_phase_gates_spawns_on_ralph_patrolling():
 
 
 def test_draw_renders_nicelander_and_pie():
-    from camera import Camera
-    from sprite_sheet import SpriteSheet
+    from core.camera import Camera
+    from graphics.sprite_sheet import SpriteSheet
     building, felix, director = make_world()
     spawn_nicelander(building, felix, director)
     screen = pygame.Surface((240, 320))

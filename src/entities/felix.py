@@ -1,53 +1,31 @@
 import math
-import enum
+
 import pygame
-from input_handler import Action
-from sprite_data import (
-    FELIX_HEAD_CENTER_X,
-    FELIX_HIT_FRAMES_RIGHT, FELIX_HIT_FRAMES_LEFT, FELIX_HIT_FRAME_HOLD_TICKS,
-    FELIX_FINAL_HIT_FRAMES, FELIX_FINAL_HIT_FRAME_HOLD_TICKS,
+
+from audio.sound_sink import SILENT_SOUND, SoundSink
+from constants.building import STREET_Y
+from constants.felix import (
+    FELIX_BUMP_POINT_ABOVE_FEET, FELIX_FALL_MAX_SPEED, FELIX_FINAL_HIT_SETTLE_FRAME_INDEX,
+    FELIX_GAME_OVER_DELAY_TICKS, FELIX_HAMMER_START_OFFSET, FELIX_HIT_FALL_BELOW_STREET,
+    FELIX_HIT_FALL_GRAVITY, FELIX_HORIZONTAL_ACCEL, FELIX_MAX_HORIZONTAL_SPEED,
+    FELIX_RESPAWN_DELAY_TICKS, FELIX_VERTICAL_MOVE_RATE, HAMMER_ANIM_RATE,
+    HAMMER_EXTENDED_TICKS, HITBOX_HEIGHT, HITBOX_WIDTH, INITIAL_LIVES,
+    INVULNERABLE_BLINK_TICKS, INVULNERABLE_TICKS, SPRITE_FRAME_HOLD_TICKS,
 )
-from entities.building import CENTER_COLUMN
-from level_config import FLOORS_PER_SECTION, STREET_Y
-from constants import (
-    INITIAL_LIVES, BONUS_LIFE_THRESHOLD, INVULNERABLE_TICKS,
-    FELIX_MAX_HORIZONTAL_SPEED, FELIX_HORIZONTAL_ACCEL,
-    FELIX_HAMMER_START_OFFSET,
-    FELIX_VERTICAL_MOVE_RATE, HAMMER_ANIM_RATE,
-    HAMMER_EXTENDED_TICKS, SPRITE_FRAME_HOLD_TICKS,
+from constants.grid import (
+    CENTER_COLUMN, COLUMN_COUNT, FLOORS_PER_SECTION, RESPAWN_COLUMN, RESPAWN_LOCAL_ROW,
 )
-
-COLUMN_COUNT = 5
-RESPAWN_LOCAL_ROW = 0
-RESPAWN_COLUMN = 2
-HITBOX_WIDTH = 12   # [ASSUMED]
-HITBOX_HEIGHT = 28  # [ASSUMED]
-INVULNERABLE_BLINK_TICKS = 4
-
-# [EXE] double at 0x416be8: the hit fall (FUN_0040c1a0) and the fall back from a
-# bumped jump (FUN_0040c0d0) both add it to vy each tick.
-FELIX_HIT_FALL_GRAVITY = 0.33
-FELIX_FALL_MAX_SPEED = 8.0  # [EXE] FUN_0040c0d0 caps vy at 0x416b58
-# [EXE] FUN_0040bea0 (0x416b60 = 36.0): a rising jump bumps once y - 36 (5 px
-# above Felix's hat) reaches the y of the sill obstacle's node above.
-FELIX_BUMP_POINT_ABOVE_FEET = 36
-FELIX_HIT_FALL_BELOW_STREET = 0x28  # [EXE] FUN_0040c1a0: building bottom + 0x28
-FELIX_RESPAWN_DELAY_TICKS = 60  # [EXE] FUN_0040c1a0 (0x3c)
-FELIX_FINAL_HIT_SETTLE_FRAME_INDEX = 7  # [EXE] FUN_0040c1a0 waits for anim frame 7
-FELIX_GAME_OVER_DELAY_TICKS = 120  # [EXE] FUN_0040c1a0 (0x78) before the game-over state
-# [EXE] FUN_0040ca00 / FUN_0040c940: a hit with no spare lives calls FUN_0040f4a0(0)
-# with ESI 0x15, replacing the in-level music; 0x13 there is the animation id.
-FINAL_HIT_MUSIC = 0x15
-BONUS_LIFE_STOPPED_SOUND = 0x16  # [EXE] FUN_004063d0
-
-
-def _frame_display_ticks(hold_ticks):
-    # FUN_0040ed40 counts a frame's hold down to zero before advancing,
-    # so each frame stays up for hold + 1 ticks.
-    return hold_ticks + 1
-
-
-HIT_ANIM_TICKS = len(FELIX_HIT_FRAMES_RIGHT) * _frame_display_ticks(FELIX_HIT_FRAME_HOLD_TICKS)
+from constants.scoring import BONUS_LIFE_THRESHOLD
+from constants.sounds import FINAL_HIT_MUSIC, SECTION_CLEAR_JINGLE
+from controls.action import Action
+from entities.events import FelixEvents
+from entities.felix_state import HIDDEN_STATES, HIT_SEQUENCE_STATES, FelixState
+from exe_data.sprite_data import (
+    FELIX_FINAL_HIT_FRAMES, FELIX_FINAL_HIT_FRAME_HOLD_TICKS, FELIX_HEAD_CENTER_X,
+    FELIX_HIT_ANIM_TICKS, FELIX_HIT_FRAMES_LEFT, FELIX_HIT_FRAMES_RIGHT,
+    FELIX_HIT_FRAME_HOLD_TICKS,
+)
+from graphics.animation import frame_display_ticks
 
 
 def _hitbox_at(x, feet_y):
@@ -57,33 +35,6 @@ def _hitbox_at(x, feet_y):
         HITBOX_WIDTH,
         HITBOX_HEIGHT,
     )
-
-
-class FelixState(enum.Enum):
-    IDLE = 0
-    WALK_HORIZONTAL = 1
-    JUMPING = 4
-    JUMP_BUMPED = 7
-    HAMMERING = 5
-    HAMMER_EXTENDED = 6
-    HIT_ANIM = 8
-    HIT_FALL = 9
-    HIT_RESPAWN_WAIT = 10
-    CELEBRATING = 11
-    FINAL_HIT_ANIM = 12
-    FINAL_HIT_HOLD = 13
-    GAME_OVER = 14
-
-
-HIT_SEQUENCE_STATES = (
-    FelixState.HIT_ANIM,
-    FelixState.HIT_FALL,
-    FelixState.HIT_RESPAWN_WAIT,
-    FelixState.FINAL_HIT_ANIM,
-    FelixState.FINAL_HIT_HOLD,
-    FelixState.GAME_OVER,
-)
-HIDDEN_STATES = (FelixState.HIT_RESPAWN_WAIT, FelixState.GAME_OVER)
 
 
 class Felix:
@@ -96,7 +47,6 @@ class Felix:
         self.facing_right = True
         self.score = 0
         self.lives = INITIAL_LIVES
-        self.last_fixed_points = 0
 
         self._pos_x = 0.0
         self._pos_y = 0.0
@@ -143,7 +93,7 @@ class Felix:
         self._prev_pos_y = self._pos_y
         self._is_placed = True
 
-    def add_score(self, points, sound=None):
+    def add_score(self, points, sound: SoundSink = SILENT_SOUND):
         """Add points; each multiple of 5000 crossed is a bonus life.
 
         [EXE] FUN_004063d0 stops sound 22 (the section jingle) and plays sound 25.
@@ -152,11 +102,10 @@ class Felix:
         while self.score >= self._next_bonus_at:
             self.lives += 1
             self._next_bonus_at += BONUS_LIFE_THRESHOLD
-            if sound:
-                sound.stop_sound_index(BONUS_LIFE_STOPPED_SOUND)
-                sound.play_sfx("bonus_life")
+            sound.stop_sound_index(SECTION_CLEAR_JINGLE)
+            sound.play_sfx("bonus_life")
 
-    def hit(self, sound=None):
+    def hit(self, sound: SoundSink = SILENT_SOUND):
         """Start the hit sequence (FUN_0040ca00). Returns False if it did not land.
 
         The life is lost at the respawn, as in the exe. On the last life Felix
@@ -177,8 +126,7 @@ class Felix:
             return True
         self.lives = 0
         self.state = FelixState.FINAL_HIT_ANIM
-        if sound:
-            sound.play_music_index(FINAL_HIT_MUSIC, is_looping=False)
+        sound.play_music_index(FINAL_HIT_MUSIC, is_looping=False)
         return True
 
     def cancel_hit_sequence(self):
@@ -199,12 +147,11 @@ class Felix:
         """Drop the pie's invulnerability early (FUN_0040cac0 on entering a new section)."""
         self._invulnerable_ticks_remaining = 0
 
-    def activate_invulnerability(self, sound=None):
+    def activate_invulnerability(self, sound: SoundSink = SILENT_SOUND):
         """Felix took the pie: FUN_0040b5e0 plays sound 2 and the sound 24 tune."""
         self._invulnerable_ticks_remaining = INVULNERABLE_TICKS
-        if sound:
-            sound.play_sfx("pie_pickup")
-            sound.play_sfx("invulnerable_tune")
+        sound.play_sfx("pie_pickup")
+        sound.play_sfx("invulnerable_tune")
 
     def world_pos(self, alpha=1.0):
         """Interpolated (center x, feet y) in world coordinates."""
@@ -216,15 +163,17 @@ class Felix:
         """World-space collision rect, centered on the feet x and standing on the feet y."""
         return _hitbox_at(self._pos_x, self._pos_y)
 
-    def tick(self, input_handler, building, sound=None, is_spot_threatened=None):
-        """Advance one tick.
+    def tick(self, input_handler, building, sound: SoundSink = SILENT_SOUND,
+             is_spot_threatened=None) -> FelixEvents:
+        """Advance one tick and report what happened: a window fixed, a respawn.
 
         is_spot_threatened(hitbox) -> bool, if given, steers the respawn away
         from spots a brick is falling toward; without it Felix respawns in place.
+        Raises RuntimeError if place_at was never called.
         """
         if not self._is_placed:
-            self.place_at(self.local_row, self.column, building)
-        self.last_fixed_points = 0
+            raise RuntimeError("Felix.tick before place_at: he has no position on the building")
+        events = FelixEvents()
         # Snapshot position at the start of this tick so draw() can
         # interpolate toward wherever this tick's movement ends up, keeping
         # motion smooth when render frames and logic ticks drift out of step.
@@ -246,17 +195,18 @@ class Felix:
         elif self.state == FelixState.HAMMERING:
             self._tick_hammering()
         elif self.state == FelixState.HAMMER_EXTENDED:
-            self._tick_hammer_extended(building, sound)
+            self._tick_hammer_extended(building, sound, events)
         elif self.state == FelixState.HIT_ANIM:
             self._tick_hit_anim()
         elif self.state == FelixState.HIT_FALL:
             self._tick_hit_fall()
         elif self.state == FelixState.HIT_RESPAWN_WAIT:
-            self._tick_hit_respawn_wait(building, is_spot_threatened)
+            self._tick_hit_respawn_wait(building, is_spot_threatened, events)
         elif self.state == FelixState.FINAL_HIT_ANIM:
             self._tick_final_hit_anim()
         elif self.state == FelixState.FINAL_HIT_HOLD:
             self._tick_final_hit_hold()
+        return events
 
     def _tick_idle(self, input_handler, building, sound):
         self._snap_to_anchor(building)
@@ -266,7 +216,7 @@ class Felix:
             self._state_ticks = 0
             self._hammer_offset = FELIX_HAMMER_START_OFFSET
             # FUN_0040b510: the swing plays sound 1 only at a broken window.
-            if sound and self._current_cell(building).is_broken:
+            if self._current_cell(building).is_broken:
                 sound.play_sfx("hammer_swing")
             return
 
@@ -305,8 +255,7 @@ class Felix:
         self._target_row = target_row
         self.state = FelixState.JUMPING
         self._state_ticks = 0
-        if sound:
-            sound.play_sfx("jump" if row_step > 0 else "drop_down")
+        sound.play_sfx("jump" if row_step > 0 else "drop_down")
 
     def _tick_walk_horizontal(self, input_handler, building):
         self._retarget_on_reverse(input_handler)
@@ -367,8 +316,7 @@ class Felix:
         if self._pos_y - FELIX_BUMP_POINT_ABOVE_FEET > obstacle_y:
             return
         cell_above.bump_sill_obstacle()
-        if sound:
-            sound.play_sfx("obstacle_bump")  # FUN_004097d0: sound 6
+        sound.play_sfx("obstacle_bump")  # FUN_004097d0: sound 6
         self._vel_y = 0.0
         self.state = FelixState.JUMP_BUMPED
 
@@ -393,21 +341,23 @@ class Felix:
         self.state = FelixState.HAMMER_EXTENDED
         self._state_ticks = 0
 
-    def _tick_hammer_extended(self, building, sound):
+    def _tick_hammer_extended(self, building, sound, events):
         # The fix (FUN_0040bc80 -> FUN_00409a70) plays no sound either.
         self._state_ticks += 1
         if self._state_ticks < HAMMER_EXTENDED_TICKS:
             return
-        points = building.fix(self._current_cell(building))
+        cell = self._current_cell(building)
+        points = building.fix(cell)
         self.state = FelixState.IDLE
         if not points:
             return
-        self.last_fixed_points = points
+        events.fixed_cell = cell
+        events.fixed_points = points
         self.add_score(points, sound)
 
     def _tick_hit_anim(self):
         self._hit_anim_ticks += 1
-        if self._hit_anim_ticks < HIT_ANIM_TICKS:
+        if self._hit_anim_ticks < FELIX_HIT_ANIM_TICKS:
             return
         self.state = FelixState.HIT_FALL
         self._vel_y = 0.0
@@ -420,13 +370,14 @@ class Felix:
         self.state = FelixState.HIT_RESPAWN_WAIT
         self._state_ticks = FELIX_RESPAWN_DELAY_TICKS
 
-    def _tick_hit_respawn_wait(self, building, is_spot_threatened):
+    def _tick_hit_respawn_wait(self, building, is_spot_threatened, events):
         self._state_ticks -= 1
         if self._state_ticks > 0:
             return
         self.lives -= 1
         column = self._choose_respawn_column(building, is_spot_threatened)
         self.place_at(self.local_row, column, building)
+        events.has_respawned = True
 
     def _choose_respawn_column(self, building, is_spot_threatened):
         """Pick the nearest column on this floor that no brick is falling toward.
@@ -552,7 +503,7 @@ def _sprite_top(camera, feet_y, alpha, sprite):
 def _frame_index_after(hold_ticks_per_frame, elapsed_ticks):
     """Frame index a play-once exe animation shows after elapsed ticks; it stops on the last frame."""
     for index, hold_ticks in enumerate(hold_ticks_per_frame):
-        elapsed_ticks -= _frame_display_ticks(hold_ticks)
+        elapsed_ticks -= frame_display_ticks(hold_ticks)
         if elapsed_ticks < 0:
             return index
     return len(hold_ticks_per_frame) - 1

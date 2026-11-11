@@ -1,88 +1,23 @@
 import random
-from dataclasses import dataclass, field
-from enum import Enum, auto
 
-from constants import (
-    BRICK_SPAWN_DROP, BRICK_SPAWN_SPREAD,
+from audio.sound_sink import SILENT_SOUND, SoundSink
+from constants.bricks import BRICK_SPAWN_DROP, BRICK_SPAWN_SPREAD
+from constants.ralph import (
+    POUND_LAST_WINDUP_FRAME_INDEX, POUND_SMASH_FRAMES, RAGE_SMASH_FRAMES,
     RALPH_CLIMB_DAMAGE_CHANCE, RALPH_CLIMB_DAMAGE_INTERVAL_TICKS, RALPH_CLIMB_SPEED,
-    RALPH_DROP_DELAY_TICKS, RALPH_POUND_ARRIVALS_PER_DROP,
-    RALPH_PATROL_CENTER_X, RALPH_PATROL_SIDE_X,
-    RALPH_POUND_BASE_TICKS, RALPH_POUND_RANDOM_TICKS,
+    RALPH_PATROL_CENTER_X, RALPH_PATROL_SIDE_X, RALPH_POUND_BASE_TICKS, RALPH_POUND_RANDOM_TICKS,
     RALPH_RAGE_BRICK_INTERVAL_TICKS, RALPH_RAGE_DURATION_TICKS, RALPH_RAGE_WINDUP_TICKS,
     RALPH_WALK_SPEED,
 )
-from entities.sprite_node import SpriteNode
-from level_config import get_level_config
-from roof_data import Animation, AnimationFrame, AnimationMode
-
-
-def _ralph_animation(mode: AnimationMode, origin_x: int, *frames: tuple[int, int]) -> Animation:
-    return Animation(mode, tuple(AnimationFrame(frame_id, hold, origin_x, 71)
-                                 for frame_id, hold in frames))
-
-
-# [EXE] Ralph's entries in the animation table at 0x419800: (frame id, hold).
-ANIM_STANDING = _ralph_animation(AnimationMode.STATIC, 24, (75, 0))  # 20: FUN_0040e3f0, last-section pose
-ANIM_WALK = _ralph_animation(AnimationMode.LOOP, 33, (78, 8), (79, 8))  # 23: FUN_0040df6f
-ANIM_POUND = _ralph_animation(  # 24: FUN_0040d870 on arrival
-    AnimationMode.ONCE, 33, (80, 6), (81, 12), (82, 6), (83, 6), (84, 6), (85, 6),
-    (82, 6), (83, 6), (84, 6), (85, 6))
-ANIM_RAGE = _ralph_animation(AnimationMode.LOOP, 33, (86, 6), (87, 6))  # 25: FUN_0040dd90
-ANIM_FISTS_UP = _ralph_animation(AnimationMode.LOOP, 33, (80, 6), (81, 6))  # 26: rage wind-up, pose, ledge
-ANIM_CLIMB = _ralph_animation(AnimationMode.LOOP, 33, (88, 6), (89, 6))  # 27: FUN_0040dbb0
-
-# [EXE] FUN_0040d970 / FUN_0040dd90 restart sound 0x10 when the node has just
-# moved onto one of these frames.
-SMASH_SOUND = 0x10
-POUND_SMASH_FRAMES = (0x52, 0x54)
-RAGE_SMASH_FRAMES = (0x56, 0x57)
-# FUN_0040d970 leaves its wind-up phase (DAT_00421738 0 -> 1) once past frame 1.
-POUND_LAST_WINDUP_FRAME_INDEX = 1
-
-
-class DropHazardSchedule:
-    """When Ralph's pounds request a drop hazard; lasts the whole game.
-
-    [EXE] Only FUN_0040e3f0, at game start, resets DAT_00421740 / DAT_00421744,
-    so the count carries across sections and levels, and an armed timer waits
-    through walks, rages and level changes until the next pound.
-    """
-
-    def __init__(self) -> None:
-        self._arrivals_until_drop = RALPH_POUND_ARRIVALS_PER_DROP
-        self._timer_ticks = 0
-
-    def on_pound_arrival(self) -> None:
-        """FUN_0040d870: every 3rd arrival at a pound spot arms the 30-tick timer."""
-        self._arrivals_until_drop -= 1
-        if self._arrivals_until_drop != 0:
-            return
-        self._arrivals_until_drop = RALPH_POUND_ARRIVALS_PER_DROP
-        self._timer_ticks = RALPH_DROP_DELAY_TICKS
-
-    def tick_pound(self) -> bool:
-        """FUN_0040d970's pound phase: count the timer down; True when it runs out."""
-        if self._timer_ticks == 0:
-            return False
-        self._timer_ticks -= 1
-        return self._timer_ticks == 0
-
-
-class RalphState(Enum):
-    WALK = auto()
-    POUND = auto()
-    SECTION_POSE = auto()
-    CLIMB = auto()
-    RAGE = auto()
-    IDLE = auto()
-
-
-@dataclass
-class RalphEvents:
-    """What happened during one Ralph tick, for the game scene to act on."""
-    brick_spawns: list[tuple[float, float]] = field(default_factory=list)
-    is_drop_hazard_requested: bool = False
-    is_climb_finished: bool = False
+from constants.sounds import RALPH_SMASH_SOUND
+from entities.drop_hazard_schedule import DropHazardSchedule
+from entities.events import RalphEvents
+from entities.ralph_state import RalphState
+from exe_data.ralph_animations import (
+    ANIM_CLIMB, ANIM_FISTS_UP, ANIM_POUND, ANIM_RAGE, ANIM_STANDING, ANIM_WALK,
+)
+from graphics.sprite_node import SpriteNode
+from world.level_config import get_level_config
 
 
 class Ralph:
@@ -97,6 +32,7 @@ class Ralph:
         self.state = RalphState.IDLE
         self._node = SpriteNode(ANIM_STANDING, is_visible=True)
         self._target_x: float = RALPH_PATROL_SIDE_X[0]
+        self._is_walking_to_center = False
         # [EXE] +0xe28: the last walk ended at the center, so the next one heads out.
         self._was_last_arrival_center = True
         # [EXE] +0xe2e: heading out goes to 72 when False, 169 when True.
@@ -110,6 +46,11 @@ class Ralph:
     def frame_id(self) -> int:
         """The exe sprite frame Ralph shows now."""
         return self._node.frame.frame_id
+
+    @property
+    def has_stopped_at_center(self) -> bool:
+        """[EXE] flag 0x421748 / +0xe28: his last walk ended at the patrol center (x 0x78)."""
+        return self._was_last_arrival_center
 
     @property
     def is_patrolling(self) -> bool:
@@ -157,7 +98,8 @@ class Ralph:
         self.state = RalphState.SECTION_POSE
         self._node.set_animation(ANIM_STANDING if is_last_section else ANIM_FISTS_UP)
 
-    def start_climb(self, building, from_y: float, first_heavy_cell=None, sound=None) -> None:
+    def start_climb(self, building, from_y: float, first_heavy_cell=None,
+                    sound: SoundSink = SILENT_SOUND) -> None:
         """Climb from from_y to the building's (already advanced) ledge."""
         self.state = RalphState.CLIMB
         self.y = from_y
@@ -166,7 +108,7 @@ class Ralph:
         if first_heavy_cell is not None:
             building.damage(first_heavy_cell, is_heavy=True, sound=sound)
 
-    def tick(self, building, level: int, sound=None) -> RalphEvents:
+    def tick(self, building, level: int, sound: SoundSink = SILENT_SOUND) -> RalphEvents:
         """Run the state handler, then step the animation (FUN_0040e310, then FUN_0040ed40)."""
         events = RalphEvents()
         if self.state == RalphState.WALK:
@@ -191,7 +133,8 @@ class Ralph:
         """FUN_0040df6f: back to the center, or out to the next side from the center."""
         self.state = RalphState.WALK
         self._node.set_animation(ANIM_WALK)
-        if not self._was_last_arrival_center:
+        self._is_walking_to_center = not self._was_last_arrival_center
+        if self._is_walking_to_center:
             self._target_x = RALPH_PATROL_CENTER_X
             return
         self._target_x = RALPH_PATROL_SIDE_X[1 if self._is_next_side_right else 0]
@@ -200,17 +143,17 @@ class Ralph:
     def _begin_pound(self) -> None:
         """FUN_0040d870 on arrival: the first brick countdown is a flat 9 ticks."""
         self.state = RalphState.POUND
-        self._was_last_arrival_center = self.x == RALPH_PATROL_CENTER_X
+        self._was_last_arrival_center = self._is_walking_to_center
         self._node.set_animation(ANIM_POUND)
         self._is_pound_windup_over = False
         self._brick_countdown_ticks = RALPH_POUND_BASE_TICKS
         self._drop_schedule.on_pound_arrival()
 
     def _play_smash_sound(self, smash_frames: tuple[int, ...], sound) -> None:
-        if sound is None or not self._node.has_frame_changed:
+        if not self._node.has_frame_changed:
             return
         if self._node.frame.frame_id in smash_frames:
-            sound.restart_sound_index(SMASH_SOUND)
+            sound.restart_sound_index(RALPH_SMASH_SOUND)
 
     def _roll_brick_countdown(self) -> None:
         self._brick_countdown_ticks = (

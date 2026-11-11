@@ -1,6 +1,6 @@
 # Fix-It Felix Jr. — Implementation Status
 
-_Last updated: 2026-11-02_
+_Last updated: 2026-11-11_
 
 ## Running tests
 
@@ -10,7 +10,29 @@ python3 -m pytest tests -q                 # tests only
 python3 -m coverage run -m pytest tests -q && python3 -m coverage report
 ```
 
-`.coveragerc` measures `src` with branch coverage, omits the four GUI-only modules verified by hand (`main.py`, `title_scene.py`, `cutscene_scene.py`, `game_over_scene.py`), and fails the report under 90%. Tests use SDL dummy drivers, so no window or sound device is needed. One test is an expected failure (`xfail`): a corrupt `scores.dat` is silently treated as empty (TODO in `high_score_scene.load_scores`).
+`.coveragerc` measures `src` with branch coverage, omits the four GUI-only modules verified by hand (`main.py`, `title_scene.py`, `cutscene_scene.py`, `game_over_scene.py`), and fails the report under 90%. Tests use SDL dummy drivers, so no window or sound device is needed.
+
+## Refactor (branch `refactor`, 2026-11-11, uncommitted)
+
+Tier 1 + Tier 2 of the final review's backlog (`.superpowers/sdd/2026-10-21-gameplay-rebuild/final-review.md`), plus a package layout. 330 tests pass, coverage 98%. A seeded, fixed-clock headless run of the real `main()` produces the same per-tick trace (Felix, Ralph, bricks, windows, score, lives, phase) as the pre-refactor commit `9ddcef3` on levels 1 and 5.
+
+**Layout (`src/`):**
+
+| Package | Holds |
+|---|---|
+| `paths.py` | `PROJECT_ROOT`, `ASSET_DIR`, `SCORES_FILE` |
+| `constants/` | every tunable or exe-decoded value, one module per domain (`felix`, `ralph`, `bricks`, `hazards`, `nicelanders`, `building`, `grid`, `scoring`, `sounds`, `phases`, `hud`, `high_scores`, `screens`, `levels`, `roof`, `display`, `timing`), tags kept |
+| `exe_data/` | tables decoded or generated from the exe: `exe_tables`, `sprite_data`, `level_table`, `ralph_animations`, `roof_animations` |
+| `core/` | `Scene`, `SceneManager`, `Camera` |
+| `controls/` | `Action`, `key_bindings`, `InputHandler` |
+| `audio/` | `SoundManager`; `SoundSink` (Protocol) and `SilentSound` (Null Object) |
+| `graphics/` | `SpriteSheet`, `HammerSheet`, `FontRenderer`, `text_layout`, `animation` (exe animation records), `SpriteNode` |
+| `world/` | `level_types` (`FloorType`, `CellKind`, `LevelConfig`), `level_config` lookups, `Building`, `Floor`, `WindowCell` |
+| `entities/` | one type per file: Felix (+ `felix_state`), Ralph (+ `ralph_state`, `drop_hazard_schedule`), `events` (`FelixEvents`, `RalphEvents`), `Brick`/`BrickField`, `Bird`, `DropHazard`, `HazardField`, `sill_obstacles`, `Nicelander`/`NicelanderDirector`, `Pie` |
+| `storage/` | `ScoreRepository` (Repository pattern) |
+| `scenes/` | title, cutscene, game over, high scores; `scenes/game/`: `GameScene` (Mediator), `GameSession`, `Hud`, `PlayTickPipeline` (Template Method); `scenes/game/phases/`: one `GamePhase` per file (State pattern) |
+
+**Behaviour changes (user-approved):** a corrupt or invalid `scores.dat` raises `CorruptScoresError` (checked at launch by `main()`, and on every load and save); `FontRenderer.render_text` raises on a character with no glyph or an unknown colour row (space still draws blank).
 
 ## Gameplay rebuild in progress (branch `gameplay-rebuild`)
 
@@ -29,7 +51,7 @@ The checkpoint's fixes (uncommitted until the user commits):
 
 **Not seen in play:** a falling drop-hazard being harmless (the tests cover it). Open question: drop-hazards freeze during Felix's hit sequence like Ralph and the bricks (`FUN_0040e1d0`); whether the exe freezes them too isn't decoded.
 
-**Dev shortcut (kept on purpose):** start on any level with `FELIX_START_LEVEL=5 python3 src/main.py` (`start_level_from_environment` in `src/scenes/game_scene.py`). A non-integer or a level below 1 raises at game start.
+**Dev shortcut (kept on purpose):** start on any level with `FELIX_START_LEVEL=5 python3 src/main.py` (`start_level_from_environment` in `src/scenes/game/game_scene.py`). A non-integer or a level below 1 raises at game start.
 
 ### Task 11: done, including the roof ending (2026-10-30 to 2026-11-02, commits `45db5e3`, `33cf1a5`, `1d25368`)
 
@@ -91,7 +113,7 @@ The atlas PNGs turned out to have a genuinely transparent background around each
 - ✅ Window caption set
 
 **Left for you** (needs ears/hands, not something I can do):
-- Listen to each `Data/soundN.wav` and check it against the mapping in `src/sound_manager.py`'s `SOUND_MAP`/`MUSIC_MAP` — swap anything that sounds wrong.
+- Listen to each `Data/soundN.wav` and check it against the mapping in `src/constants/sounds.py`'s `SOUND_MAP`/`MUSIC_MAP` — swap anything that sounds wrong.
 - Play a few levels and see if the difficulty curve feels right. Tuning knobs: `src/entities/ralph.py`'s `configure_for_level()` (brick throw rate/aim/volume) and `src/scenes/game_scene.py`'s bird/pie spawn intervals.
 - A full playthrough — now that real sprites are in, this is the first point where an actual look-and-feel pass makes sense.
 
@@ -114,7 +136,7 @@ The atlas PNGs turned out to have a genuinely transparent background around each
 
 **What changed:**
 - `TICK_RATE` is now 1/60s. Ghidra per-tick velocities are used as-is, and Felix's speed is back to the original 2.0 (the earlier 5.0 bump was compensating for the wrong tick rate).
-- Every estimated duration lives in `src/constants.py`, written in seconds via `seconds_to_ticks()` — tune feel there. No more magic tick numbers in scenes/entities.
+- Every estimated duration lives in `src/constants/` (by domain), written in seconds via `seconds_to_ticks()` — tune feel there. No more magic tick numbers in scenes/entities.
 - Sprite animation (Felix walk, Ralph, birds) and the pie's blink use a frame-hold cadence so they don't flicker at 60 ticks/sec.
 - **Bricks no longer break windows.** They used to break the first unbroken window they touched and vanish — nearly always the top row, so they almost never reached Felix. They now fall the full building height (~2.4-3.6s) and only threaten Felix, like the arcade original. They also fall straight down (no random sideways drift — at 60 Hz it carried bricks off the building).
 - Docs corrected: Ghidra findings §2, README, design spec note.

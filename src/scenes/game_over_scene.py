@@ -1,8 +1,9 @@
-import pygame
-from scene_manager import Scene
-from constants import GAME_WIDTH, GAME_HEIGHT, BLACK, GAME_OVER_TICKS
-from sprite_sheet import SpriteSheet
-from font_renderer import FontRenderer, scale_text_to_fit
+from constants.display import BLACK, GAME_HEIGHT, GAME_WIDTH
+from constants.screens import GAME_OVER_TICKS
+from core.scene import Scene
+from graphics.font_renderer import FontRenderer
+from graphics.sprite_sheet import SpriteSheet
+from graphics.text_layout import draw_centered_text
 
 
 class GameOverScene(Scene):
@@ -22,13 +23,8 @@ class GameOverScene(Scene):
 
     def draw(self, screen, alpha=1.0):
         screen.fill(BLACK)
-
-        game_over = self.font.render_text("GAME OVER", color_row=0)
-        scaled = scale_text_to_fit(game_over, GAME_WIDTH - 16, preferred_scale=4.0)
-        rect = scaled.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2 - 30))
-        screen.blit(scaled, rect)
-
-        score = self.font.render_text(f"SCORE {self.final_score:06d}", color_row=1)
-        scaled_score = scale_text_to_fit(score, GAME_WIDTH - 16, preferred_scale=2.0)
-        rect = scaled_score.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2 + 40))
-        screen.blit(scaled_score, rect)
+        draw_centered_text(screen, self.font, "GAME OVER", (GAME_WIDTH // 2, GAME_HEIGHT // 2 - 30),
+                           preferred_scale=4.0)
+        draw_centered_text(screen, self.font, f"SCORE {self.final_score:06d}",
+                           (GAME_WIDTH // 2, GAME_HEIGHT // 2 + 40), color_row=1,
+                           preferred_scale=2.0)

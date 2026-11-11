@@ -5,14 +5,10 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from level_config import (  # noqa: E402
-    COLUMN_X,
-    FLOORS_PER_SECTION,
-    FloorType,
-    LevelConfig,
-    get_floor_sequence,
-    get_level_config,
-)
+from constants.grid import FLOORS_PER_SECTION  # noqa: E402
+from exe_data.level_table import COLUMN_X  # noqa: E402
+from world.level_config import get_floor_sequence, get_level_config  # noqa: E402
+from world.level_types import FloorType, LevelConfig  # noqa: E402
 
 
 def test_level_table_rows():
@@ -59,3 +55,16 @@ def test_center_cell_is_centered_on_x_120():
 def test_level_zero_raises():
     with pytest.raises(ValueError):
         get_level_config(0)
+
+
+def test_layout_tables_are_read_only():
+    with pytest.raises(TypeError):
+        COLUMN_X[FloorType.GROUND] = (0, 0, 0, 0, 0)
+
+
+def test_a_floor_count_without_a_sequence_raises_lookup_error(monkeypatch):
+    from types import MappingProxyType
+    from world import level_config
+    monkeypatch.setattr(level_config, "FLOOR_SEQUENCES", MappingProxyType({}))
+    with pytest.raises(LookupError, match="no floor sequence for floor_count 9"):
+        get_floor_sequence(1)

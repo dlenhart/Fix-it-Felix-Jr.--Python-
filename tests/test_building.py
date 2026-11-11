@@ -6,8 +6,9 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from entities.building import Building  # noqa: E402
-from level_config import CELL_PIECE, CellKind, FloorType  # noqa: E402
+from world.building import Building  # noqa: E402
+from exe_data.level_table import CELL_PIECE  # noqa: E402
+from world.level_types import CellKind, FloorType  # noqa: E402
 
 
 def test_level_one_layout():
@@ -131,3 +132,17 @@ def test_sill_obstacle_node_rests_on_the_sill_at_the_bounds_middle():
     assert b.sill_middle_x(side) == side.x + 11  # (0x17 - 0) // 2
     assert b.sill_middle_x(center) == 108 + 11  # type 4 bounds 108..131
     assert b.sill_obstacle_node(side) == (side.x + 11, b.sill_y(side))
+
+
+@pytest.mark.parametrize("local_row, column", [(-1, 0), (4, 0), (0, -1), (0, 5)])
+def test_cell_outside_the_section_raises(local_row, column):
+    building = Building(1, random.Random(0))
+    with pytest.raises(IndexError):
+        building.cell(local_row, column)
+
+
+@pytest.mark.parametrize("section_index", [-1, 2])
+def test_section_floors_outside_the_level_raises(section_index):
+    building = Building(1, random.Random(0))  # level 1 has 2 sections
+    with pytest.raises(IndexError):
+        building.section_floors(section_index)

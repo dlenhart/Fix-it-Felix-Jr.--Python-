@@ -11,15 +11,21 @@ import pygame  # noqa: E402
 pygame.init()
 pygame.display.set_mode((1, 1))
 
-from entities.building import Building  # noqa: E402
+from world.building import Building  # noqa: E402
 from entities.felix import Felix  # noqa: E402
-from entities.hazards import (  # noqa: E402
+from constants.hazards import (  # noqa: E402
     BIRD_SPEED, BIRD_WRAP_LEFT_X, BIRD_WRAP_RIGHT_X, DROP_HAZARD_BLINK_TICKS,
-    DROP_HAZARD_MAX_LIVE, Bird, HazardField,
+    DROP_HAZARD_MAX_LIVE,
+)
+from entities.bird import Bird  # noqa: E402
+from entities.hazard_field import HazardField  # noqa: E402
+from entities.sill_obstacles import (  # noqa: E402
     clear_sill_obstacles, place_sill_obstacles, sill_obstacle_rect,
 )
-from level_config import CellKind, get_level_config  # noqa: E402
-from scenes.game_phases import PlayPhase, SectionClearPhase  # noqa: E402
+from world.level_config import get_level_config  # noqa: E402
+from world.level_types import CellKind  # noqa: E402
+from scenes.game.phases.play_phase import PlayPhase  # noqa: E402
+from scenes.game.phases.section_clear_phase import SectionClearPhase  # noqa: E402
 from test_game_flow import MockInput, fix_section, make_game, reach_play, tick_until  # noqa: E402
 
 
@@ -27,6 +33,7 @@ class StubRalph:
     def __init__(self, x=120.0, y=100.0):
         self.x = x
         self.y = y
+        self.has_stopped_at_center = x == 120.0
 
 
 def make_world(level, seed=1):
@@ -288,7 +295,7 @@ def test_hazard_touch_during_hit_sequence_does_nothing():
 
 def test_birds_return_to_start_x_at_respawn():
     _, game = make_game()
-    game.start_level(4)
+    game.phase = game.start_level(4)
     reach_play(game)
     game.hazards.clear()
     game.hazards.start_section(game.building, get_level_config(4))
@@ -318,7 +325,7 @@ def test_drop_hazard_threatens_its_gap_while_falling_and_after_landing():
 
 def test_section_clear_removes_hazards_and_obstacle_flags_and_next_section_places_more():
     _, game = make_game()
-    game.start_level(4)
+    game.phase = game.start_level(4)
     reach_play(game)
     assert game.hazards.birds
     old_cells = section_cells(game.building)
@@ -343,7 +350,7 @@ def test_clear_sill_obstacles_resets_the_active_section():
 
 def test_draw_renders_every_hazard():
     _, game = make_game()
-    game.start_level(5)
+    game.phase = game.start_level(5)
     reach_play(game)
     game.hazards.request_drop(game.ralph, game.building, get_level_config(5))
     game.tick(MockInput())
@@ -353,7 +360,7 @@ def test_draw_renders_every_hazard():
 
 def test_bird_hit_costs_exactly_one_life():
     _, game = make_game()
-    game.start_level(4)
+    game.phase = game.start_level(4)
     reach_play(game)
     game.bricks.clear()
     lives_before = game.felix.lives

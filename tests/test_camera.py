@@ -1,9 +1,11 @@
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from camera import Camera  # noqa: E402
+from core.camera import Camera  # noqa: E402
 
 
 def test_camera_scrolls_without_overshoot():
@@ -34,3 +36,10 @@ def test_cut_to_jumps_without_interpolation():
     camera.cut_to(-160, 40)
     assert camera.to_screen_x(304, alpha=0.0) == 144
     assert camera.to_screen_y(0, alpha=0.0) == 40
+
+
+def test_scroll_toward_rejects_a_non_positive_speed():
+    camera = Camera()
+    for speed in (0, -2):
+        with pytest.raises(ValueError):
+            camera.scroll_toward(5, speed)

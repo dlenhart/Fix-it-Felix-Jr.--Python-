@@ -11,10 +11,11 @@ import pytest  # noqa: E402
 pygame.init()
 pygame.display.set_mode((1, 1))
 
-import level_config  # noqa: E402
-import sprite_data  # noqa: E402
-from exe_tables import BUILDING_PIECES, SPRITE_FRAMES  # noqa: E402
-from sprite_sheet import HammerSheet, SpriteSheet  # noqa: E402
+from exe_data import level_table  # noqa: E402
+from exe_data import sprite_data  # noqa: E402
+from exe_data.exe_tables import BUILDING_PIECES, SPRITE_FRAMES  # noqa: E402
+from graphics.hammer_sheet import HammerSheet  # noqa: E402
+from graphics.sprite_sheet import SpriteSheet  # noqa: E402
 
 
 
@@ -106,7 +107,7 @@ def test_every_named_frame_id_in_sprite_data_resolves(sheet):
 
 def test_every_named_piece_id_resolves(sheet):
     sheet.get_piece(sprite_data.LIFE_ICON_PIECE)
-    for piece_id in (*level_config.FLOOR_PIECE.values(), *level_config.CELL_PIECE.values()):
+    for piece_id in (*level_table.FLOOR_PIECE.values(), *level_table.CELL_PIECE.values()):
         sheet.get_piece(piece_id)
 
 
@@ -118,3 +119,22 @@ def test_hammer_sheet_sprite_size_and_unknown_name():
     assert hammers.get_sprite("hammer_swing") is sprite
     with pytest.raises(KeyError):
         hammers.get_sprite("no_such_hammer")
+
+
+def test_get_region_slices_the_atlas_and_caches_it():
+    sheet = SpriteSheet()
+    region = sheet.get_region((8, 968, 8, 8))
+    assert region.get_size() == (8, 8)
+    assert sheet.get_region((8, 968, 8, 8)) is region
+
+
+def test_get_region_outside_the_atlas_raises():
+    with pytest.raises(ValueError):
+        SpriteSheet().get_region((1020, 1020, 8, 8))
+
+
+def test_frames_and_pieces_with_the_same_id_do_not_share_a_cache_entry():
+    sheet = SpriteSheet()
+    assert sheet.get_frame(5) is not sheet.get_piece(5)
+    assert sheet.get_frame(5).get_size() == SPRITE_FRAMES[5][2:]
+    assert sheet.get_piece(5).get_size() == BUILDING_PIECES[5][2:]

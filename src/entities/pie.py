@@ -1,14 +1,12 @@
 """The pie a Nicelander hands out (spec section 7)."""
 import pygame
 
-from camera import Camera
-from entities.building import Building, WindowCell
+from core.camera import Camera
 from entities.felix import Felix
-from sprite_data import PIE_FRAMES, PIE_FRAME_HOLD_TICKS, PIE_ORIGIN
-from sprite_sheet import SpriteSheet
-
-# FUN_0040ed40 shows each frame for hold + 1 ticks.
-PIE_FRAME_DISPLAY_TICKS = PIE_FRAME_HOLD_TICKS + 1
+from exe_data.sprite_data import PIE_FRAME_DISPLAY_TICKS, PIE_FRAMES, PIE_ORIGIN
+from graphics.sprite_sheet import SpriteSheet
+from world.building import Building
+from world.window_cell import WindowCell
 
 
 class Pie:

@@ -8,8 +8,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 import pygame  # noqa: E402
 import pytest  # noqa: E402
 
-import sound_manager  # noqa: E402
-from sound_manager import SoundManager  # noqa: E402
+from audio import sound_manager  # noqa: E402
+from constants import sounds  # noqa: E402
+from audio.sound_manager import SoundManager  # noqa: E402
 
 
 class RecordingMusic:
@@ -83,7 +84,7 @@ def test_stopping_the_current_musics_index_stops_the_music(sound, monkeypatch):
 
 
 def test_every_mapped_sound_file_exists():
-    for filename in list(sound_manager.SOUND_MAP.values()) + list(sound_manager.MUSIC_MAP.values()):
+    for filename in list(sounds.SOUND_MAP.values()) + list(sounds.MUSIC_MAP.values()):
         assert os.path.exists(os.path.join(sound_manager.ASSET_DIR, f"{filename}.wav")), filename
 
 

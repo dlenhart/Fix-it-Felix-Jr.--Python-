@@ -3,7 +3,8 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from scene_manager import Scene, SceneManager  # noqa: E402
+from core.scene import Scene  # noqa: E402
+from core.scene_manager import SceneManager  # noqa: E402
 
 
 class RecordingScene(Scene):

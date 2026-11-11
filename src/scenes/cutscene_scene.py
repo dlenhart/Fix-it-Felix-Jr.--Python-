@@ -1,19 +1,13 @@
 import pygame
-from scene_manager import Scene
-from constants import GAME_WIDTH, GAME_HEIGHT, BLACK, SKY_BLUE, seconds_to_ticks
-from input_handler import Action
-from sprite_sheet import SpriteSheet
-from sound_manager import SoundManager
-from font_renderer import FontRenderer, scale_text_to_fit
 
-
-CUTSCENE_STEPS = [
-    {"duration_ticks": seconds_to_ticks(2.0), "text": "", "sprite": "building_exterior"},
-    {"duration_ticks": seconds_to_ticks(2.5), "text": "HEY. YOU MOVED MY STUMP!", "sprite": "ralph_cutscene_idle"},
-    {"duration_ticks": seconds_to_ticks(2.5), "text": "I'M GONNA WRECK IT!", "sprite": "ralph_cutscene_smash"},
-    {"duration_ticks": seconds_to_ticks(2.0), "text": "FIX IT FELIX!", "sprite": None},
-    {"duration_ticks": seconds_to_ticks(2.0), "text": "I CAN FIX IT!", "sprite": None},
-]
+from audio.sound_manager import SoundManager
+from constants.display import GAME_HEIGHT, GAME_WIDTH, SKY_BLUE
+from constants.screens import CUTSCENE_STEPS
+from controls.action import Action
+from core.scene import Scene
+from graphics.font_renderer import FontRenderer
+from graphics.sprite_sheet import SpriteSheet
+from graphics.text_layout import draw_centered_text
 
 
 class CutsceneScene(Scene):
@@ -47,7 +41,7 @@ class CutsceneScene(Scene):
                     self._start_game()
 
     def _start_game(self):
-        from scenes.game_scene import GameScene
+        from scenes.game.game_scene import GameScene
         self.manager.replace(GameScene(self.manager))
 
     def draw(self, screen, alpha=1.0):
@@ -66,10 +60,9 @@ class CutsceneScene(Scene):
                 rect = sprite_scaled.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2 - 40))
                 screen.blit(sprite_scaled, rect)
             except (KeyError, IndexError):
+                # TODO: fail-fast says let a missing sprite raise instead of skipping it.
                 pass
 
         if step["text"]:
-            text = self.font.render_text(step["text"], color_row=0)
-            scaled = scale_text_to_fit(text, GAME_WIDTH - 16, preferred_scale=2.0)
-            rect = scaled.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2 + 80))
-            screen.blit(scaled, rect)
+            draw_centered_text(screen, self.font, step["text"],
+                               (GAME_WIDTH // 2, GAME_HEIGHT // 2 + 80), preferred_scale=2.0)

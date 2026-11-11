@@ -6,19 +6,22 @@ os.environ["SDL_AUDIODRIVER"] = "dummy"
 from random import Random
 
 import pygame
+import pytest
 pygame.init()
 
-from entities.felix import (
-    Felix, FelixState, FELIX_HIT_FALL_GRAVITY, FELIX_RESPAWN_DELAY_TICKS,
-    FELIX_GAME_OVER_DELAY_TICKS, HIT_ANIM_TICKS,
+from constants.felix import (
+    FELIX_GAME_OVER_DELAY_TICKS, FELIX_HIT_FALL_GRAVITY, FELIX_RESPAWN_DELAY_TICKS,
 )
-from entities.building import Building
-from input_handler import Action
-from level_config import STREET_Y, CellKind
-from constants import (
-    BONUS_LIFE_THRESHOLD, INVULNERABLE_TICKS, FELIX_MAX_HORIZONTAL_SPEED,
-    INITIAL_LIVES,
-)
+from entities.felix import Felix
+from entities.felix_state import FelixState
+from exe_data.sprite_data import FELIX_HIT_ANIM_TICKS
+from world.building import Building
+from audio.sound_sink import SILENT_SOUND
+from controls.action import Action
+from constants.building import STREET_Y
+from world.level_types import CellKind
+from constants.felix import FELIX_MAX_HORIZONTAL_SPEED, INITIAL_LIVES, INVULNERABLE_TICKS
+from constants.scoring import BONUS_LIFE_THRESHOLD
 
 
 class MockInput:
@@ -50,16 +53,16 @@ def make_felix(local_row=0, column=2):
     return felix, building
 
 
-def tick_n(felix, building, count, sound=None):
+def tick_n(felix, building, count, sound=SILENT_SOUND):
     for _ in range(count):
         felix.tick(MockInput(), building, sound)
 
 
-def press(felix, building, action, sound=None):
+def press(felix, building, action, sound=SILENT_SOUND):
     felix.tick(MockInput(action), building, sound)
 
 
-def swing(felix, building, sound=None):
+def swing(felix, building, sound=SILENT_SOUND):
     press(felix, building, Action.JUMP, sound)
     for _ in range(100):
         if felix.state == FelixState.IDLE:
@@ -274,21 +277,21 @@ def test_one_swing_fixes_window_and_scores_100():
     assert sound.played == ["hammer_swing"]  # FUN_0040b510 at the press; the fix is silent
 
 
-def test_last_window_scores_500_and_flags_last_fixed_points():
+def test_last_window_scores_500_and_reports_the_fix_in_the_tick_events():
     f, b = make_felix(0, 1)
     b.damage(b.cell(0, 1), is_heavy=True)
     sound = RecordingSound()
     press(f, b, Action.JUMP, sound)
     seen = []
     for _ in range(100):
-        tick_n(f, b, 1, sound)
-        seen.append(f.last_fixed_points)
+        events = f.tick(MockInput(), b, sound)
+        seen.append((events.fixed_points, events.fixed_cell))
         if f.state == FelixState.IDLE:
             break
     assert f.score == 500
-    assert 500 in seen
-    tick_n(f, b, 1)
-    assert f.last_fixed_points == 0  # reset at the start of the next tick
+    assert (500, b.cell(0, 1)) in seen
+    next_events = f.tick(MockInput(), b)
+    assert next_events.fixed_points == 0 and next_events.fixed_cell is None
     assert sound.played == ["hammer_swing"]
 
 
@@ -311,9 +314,15 @@ def test_swing_at_intact_window_is_silent():
 
 def test_swing_at_intact_window_scores_nothing():
     f, b = make_felix(0, 1)
-    swing(f, b)
+    press(f, b, Action.JUMP)
+    fixes = []
+    for _ in range(100):
+        events = f.tick(MockInput(), b)
+        fixes.append(events.fixed_points)
+        if f.state == FelixState.IDLE:
+            break
     assert f.score == 0
-    assert f.last_fixed_points == 0
+    assert set(fixes) == {0}
 
 
 def test_bonus_life_every_5000():
@@ -339,7 +348,7 @@ def test_hit_ignored_during_sequence():
     f, b = make_felix()
     f.hit()
     assert f.hit() is False
-    tick_n(f, b, HIT_ANIM_TICKS + 5)
+    tick_n(f, b, FELIX_HIT_ANIM_TICKS + 5)
     assert f.state == FelixState.HIT_FALL
     assert f.hit() is False
     assert f.lives == INITIAL_LIVES
@@ -349,7 +358,7 @@ def test_hit_animation_plays_in_place_then_falls_with_exe_gravity():
     f, b = make_felix(1, 3)
     start = f.world_pos()
     f.hit()
-    for _ in range(HIT_ANIM_TICKS - 1):
+    for _ in range(FELIX_HIT_ANIM_TICKS - 1):
         tick_n(f, b, 1)
         assert f.state == FelixState.HIT_ANIM
         assert f.world_pos() == start
@@ -545,7 +554,7 @@ def test_vertical_jump_sounds_follow_the_exe():
 
 
 def test_sound_map_uses_the_exe_indices():
-    from sound_manager import SOUND_MAP
+    from constants.sounds import SOUND_MAP
     assert SOUND_MAP["jump"] == "sound15"  # FUN_0040c3d0 case 5: index 0x0F
     assert SOUND_MAP["drop_down"] == "sound17"  # FUN_0040c3d0 case 6: index 0x11
     assert SOUND_MAP["window_break"] == "sound5"  # FUN_00409840: index 5
@@ -575,3 +584,16 @@ def test_bonus_life_stops_the_jingle_and_plays_sound_25():
     felix.add_score(100, sound)
     assert felix.lives == lives + 1
     assert sound.calls == [("stop", 0x16), "bonus_life"]  # FUN_004063d0
+
+
+def test_tick_before_place_at_raises():
+    with pytest.raises(RuntimeError, match="before place_at"):
+        Felix().tick(MockInput(), Building(1, Random(0)))
+
+
+def test_has_respawned_is_reported_on_exactly_one_tick():
+    f, b = make_felix(0, 2)
+    assert f.hit()
+    respawn_ticks = [tick for tick in range(400) if f.tick(MockInput(), b).has_respawned]
+    assert len(respawn_ticks) == 1
+    assert not f.is_in_hit_sequence and f.lives == INITIAL_LIVES - 1

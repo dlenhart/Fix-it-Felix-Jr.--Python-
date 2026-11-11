@@ -12,25 +12,31 @@ import pygame  # noqa: E402
 pygame.init()
 pygame.display.set_mode((1, 1))
 
-import roof_data as roof  # noqa: E402
-from constants import GAME_HEIGHT, GAME_WIDTH  # noqa: E402
-from entities.building import Building  # noqa: E402
-from entities.sprite_node import SpriteNode  # noqa: E402
-from input_handler import Action  # noqa: E402
-from scene_manager import SceneManager  # noqa: E402
+import constants.roof as roof  # noqa: E402
+from exe_data.roof_animations import ROOF_ANIMATIONS  # noqa: E402
+from constants.display import GAME_HEIGHT, GAME_WIDTH  # noqa: E402
+from world.building import Building  # noqa: E402
+from graphics.sprite_node import SpriteNode  # noqa: E402
+from controls.action import Action  # noqa: E402
+from core.scene_manager import SceneManager  # noqa: E402
 from scenes import high_score_scene  # noqa: E402
+from storage.score_repository import ScoreRepository  # noqa: E402
 from scenes.game_over_scene import GameOverScene  # noqa: E402
-from scenes.game_phases import (  # noqa: E402
+from constants.phases import (  # noqa: E402
     LEVEL_END_COUNTDOWN_TICKS, READY_MESSAGE_COLOUR, SCORE_POPUP_DELAY_TICKS,
-    SCORE_POPUP_RISE_PX, LevelEndPhase, LevelStartPhase, PlayPhase,
+    SCORE_POPUP_RISE_PX,
 )
-from scenes.game_scene import GameScene  # noqa: E402
+from scenes.game.phases.level_end_phase import LevelEndPhase  # noqa: E402
+from scenes.game.phases.level_start_phase import LevelStartPhase  # noqa: E402
+from scenes.game.phases.play_phase import PlayPhase  # noqa: E402
+from scenes.game.game_scene import GameScene  # noqa: E402
 from scenes.high_score_scene import HighScoreScene  # noqa: E402
-from scenes.roof_phases import GameEndPhase, RoofPhase  # noqa: E402
+from scenes.game.phases.game_end_phase import GameEndPhase  # noqa: E402
+from scenes.game.phases.roof_phase import RoofPhase  # noqa: E402
 from scenes.title_scene import TitleScene  # noqa: E402
-from entities.felix import FelixState  # noqa: E402
-from level_config import get_level_config  # noqa: E402
-from sprite_data import font_row_for_exe_colour  # noqa: E402
+from entities.felix_state import FelixState  # noqa: E402
+from world.level_config import get_level_config  # noqa: E402
+from exe_data.sprite_data import font_row_for_exe_colour  # noqa: E402
 
 TICK_LIMIT = 5000
 
@@ -67,7 +73,7 @@ def make_game(seed=1, level=1):
     manager.push(game)
     game.sound = RecordingSound()
     if level != 1:
-        game.start_level(level)
+        game.phase = game.start_level(level)
     return manager, game
 
 
@@ -110,7 +116,7 @@ def tick_roof_until(game, roof_phase, condition):
 
 def animation_ticks(anim_id):
     """Ticks from setting an animation until the script sees it finished: each frame shows hold + 1."""
-    return sum(frame.hold + 1 for frame in roof.ROOF_ANIMATIONS[anim_id].frames)
+    return sum(frame.hold + 1 for frame in ROOF_ANIMATIONS[anim_id].frames)
 
 
 def expected_roof_ticks():
@@ -151,7 +157,7 @@ def test_roof_runs_on_the_exe_schedule_and_advances_keeping_score_and_lives():
         game.tick(MockInput())
         roof_ticks += 1
     assert roof_ticks == expected_roof_ticks()
-    assert game.level == 2
+    assert game.session.level == 2
     assert isinstance(game.phase, LevelStartPhase)
     assert (game.camera.scroll_x, game.camera.scroll_y) == (0, 0)
     assert (game.felix.score, game.felix.lives) == (4321, 6)
@@ -193,7 +199,7 @@ def test_no_hits_or_scoring_during_the_roof():
         assert game.felix.world_pos() == felix_before
         assert (game.felix.lives, game.felix.score) == (lives_before, 0)
         assert broken_cell.is_broken
-    assert game.level == 2
+    assert game.session.level == 2
 
 
 def reach_level_end_wait(game):
@@ -231,8 +237,8 @@ def test_level_end_wait_keeps_felix_playable_and_clears_only_what_the_exe_clears
 def test_level_end_clears_birds_but_keeps_drop_hazards():
     _, game = make_game(level=5)
     reach_play(game)
-    game.hazards.start_section(game.building, get_level_config(game.level))
-    game.hazards.request_drop(game.ralph, game.building, get_level_config(game.level))
+    game.hazards.start_section(game.building, get_level_config(game.session.level))
+    game.hazards.request_drop(game.ralph, game.building, get_level_config(game.session.level))
     assert game.hazards.birds and game.hazards.drop_hazards
     game.phase = LevelEndPhase()
     game.tick(MockInput())
@@ -267,7 +273,7 @@ def test_a_final_hit_during_the_wait_does_not_end_the_game():
     assert manager.current is game
     roof_phase = game.phase
     tick_until(game, lambda: game.phase is not roof_phase)
-    assert game.level == 2
+    assert game.session.level == 2
     assert game.felix.lives == 1
 
 
@@ -383,7 +389,7 @@ def test_footstep_plays_on_every_fourth_march_move():
 def use_temporary_scores(tmp_path, monkeypatch, scores):
     scores_file = tmp_path / "scores.dat"
     monkeypatch.setattr(high_score_scene, "SCORES_FILE", str(scores_file))
-    high_score_scene.save_scores(scores)
+    ScoreRepository(high_score_scene.SCORES_FILE).save(scores)
     return scores_file
 
 
@@ -441,7 +447,7 @@ def test_n_pressed_during_play_ends_the_game_after_that_levels_roof(tmp_path, mo
     roof_phase = clear_level(game)
     tick_until(game, lambda: game.phase is not roof_phase)
     assert isinstance(game.phase, GameEndPhase)
-    assert game.level == 1
+    assert game.session.level == 1
     tick_until(game, lambda: manager.current is not game)
     assert isinstance(manager.current, HighScoreScene)
 
@@ -474,7 +480,7 @@ def test_ready_pause_shows_player_1_ready_at_the_exe_cell():
 
 
 def test_sprite_node_frames_show_hold_plus_one_ticks_and_once_finishes():
-    animation = roof.ROOF_ANIMATIONS[roof.FELIX_ANIM_TAKES_PIE]  # holds 10, 10, 10
+    animation = ROOF_ANIMATIONS[roof.FELIX_ANIM_TAKES_PIE]  # holds 10, 10, 10
     node = SpriteNode(animation, is_visible=True)
     frames_seen = []
     while not node.is_finished:
@@ -488,7 +494,7 @@ def test_sprite_node_frames_show_hold_plus_one_ticks_and_once_finishes():
 
 
 def test_hidden_or_paused_nodes_do_not_animate():
-    animation = roof.ROOF_ANIMATIONS[roof.DOOR_ANIM]
+    animation = ROOF_ANIMATIONS[roof.DOOR_ANIM]
     hidden = SpriteNode(animation)
     paused = SpriteNode(animation, is_visible=True, is_paused=True)
     for _ in range(200):

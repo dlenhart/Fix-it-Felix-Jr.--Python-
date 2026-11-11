@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 
@@ -8,13 +9,15 @@ os.environ["SDL_AUDIODRIVER"] = "dummy"
 
 import pytest  # noqa: E402
 
-from input_handler import Action  # noqa: E402
+from controls.action import Action  # noqa: E402
+from constants.high_scores import INITIALS_LENGTH, MAX_SCORES  # noqa: E402
 from scenes import high_score_scene  # noqa: E402
+from storage.score_repository import CorruptScoresError, ScoreRepository  # noqa: E402
 
 
 def test_default_high_scores_when_no_file(tmp_path, monkeypatch):
     monkeypatch.setattr(high_score_scene, "SCORES_FILE", str(tmp_path / "scores.dat"))
-    scores = high_score_scene.load_scores()
+    scores = ScoreRepository(high_score_scene.SCORES_FILE).load()
     assert [(entry["name"], entry["score"]) for entry in scores] == [
         ("VAV", 15000), ("DES", 10000), ("RYS", 8000), ("KYL", 6000), ("CMI", 4000)]
 
@@ -22,8 +25,8 @@ def test_default_high_scores_when_no_file(tmp_path, monkeypatch):
 def test_saved_scores_replace_the_defaults(tmp_path, monkeypatch):
     monkeypatch.setattr(high_score_scene, "SCORES_FILE", str(tmp_path / "scores.dat"))
     saved = [{"name": "ABC", "score": 99}]
-    high_score_scene.save_scores(saved)
-    assert high_score_scene.load_scores() == saved
+    ScoreRepository(high_score_scene.SCORES_FILE).save(saved)
+    assert ScoreRepository(high_score_scene.SCORES_FILE).load() == saved
 
 
 class PressOnce:
@@ -49,7 +52,7 @@ def press(scene, *actions):
 
 
 def test_entry_steps_from_the_displayed_a(tmp_path, monkeypatch):
-    from input_handler import Action
+    from controls.action import Action
     scene = entry_scene(tmp_path, monkeypatch)
     press(scene, Action.DOWN)
     assert scene.initials[0] == "B"
@@ -59,7 +62,7 @@ def test_entry_steps_from_the_displayed_a(tmp_path, monkeypatch):
 
 
 def test_confirm_puts_the_next_slot_back_on_a(tmp_path, monkeypatch):
-    from input_handler import Action
+    from controls.action import Action
     scene = entry_scene(tmp_path, monkeypatch)
     press(scene, Action.DOWN)
     press(scene, Action.DOWN)
@@ -69,13 +72,13 @@ def test_confirm_puts_the_next_slot_back_on_a(tmp_path, monkeypatch):
 
 
 def test_enter_or_space_confirms_and_the_third_saves(tmp_path, monkeypatch):
-    from input_handler import Action
+    from controls.action import Action
     scene = entry_scene(tmp_path, monkeypatch)
     press(scene, Action.START)
     press(scene, Action.JUMP)
     press(scene, Action.DOWN)
     press(scene, Action.START)
-    saved = high_score_scene.load_scores()
+    saved = ScoreRepository(high_score_scene.SCORES_FILE).load()
     assert saved[0] == {"name": "AAB", "score": 20000}
 
 
@@ -99,17 +102,17 @@ def test_save_then_load_round_trips(tmp_path, monkeypatch):
     monkeypatch.setattr(high_score_scene, "SCORES_FILE", str(tmp_path / "scores.dat"))
     table = [{"name": "AAA", "score": 300}, {"name": "BBB", "score": 200},
              {"name": "CCC", "score": 100}]
-    high_score_scene.save_scores(table)
-    assert high_score_scene.load_scores() == table
+    ScoreRepository(high_score_scene.SCORES_FILE).save(table)
+    assert ScoreRepository(high_score_scene.SCORES_FILE).load() == table
 
 
 def test_scores_capped_at_max_and_sorted_descending(tmp_path, monkeypatch):
-    from input_handler import Action
+    from controls.action import Action
     scene = entry_scene(tmp_path, monkeypatch, final_score=7000)
-    for _ in range(high_score_scene.INITIALS_LENGTH):
+    for _ in range(INITIALS_LENGTH):
         press(scene, Action.JUMP)
-    saved = high_score_scene.load_scores()
-    assert len(saved) == high_score_scene.MAX_SCORES
+    saved = ScoreRepository(high_score_scene.SCORES_FILE).load()
+    assert len(saved) == MAX_SCORES
     scores = [entry["score"] for entry in saved]
     assert scores == [15000, 10000, 8000, 7000, 6000]  # 4000 fell off the bottom
     assert saved[3]["name"] == "AAA"
@@ -137,7 +140,7 @@ def test_score_below_the_table_skips_initials_and_saves_nothing(tmp_path, monkey
 
 
 def test_pressing_start_on_the_table_returns_to_the_title(tmp_path, monkeypatch):
-    from input_handler import Action
+    from controls.action import Action
     from scenes.title_scene import TitleScene
     scene, manager = display_scene(tmp_path, monkeypatch)
     press(scene)
@@ -148,7 +151,7 @@ def test_pressing_start_on_the_table_returns_to_the_title(tmp_path, monkeypatch)
 
 
 def test_table_times_out_to_the_title(tmp_path, monkeypatch):
-    from constants import HS_DISPLAY_TIMER_TICKS
+    from constants.high_scores import HS_DISPLAY_TIMER_TICKS
     scene, manager = display_scene(tmp_path, monkeypatch)
     for _ in range(HS_DISPLAY_TIMER_TICKS - 1):
         press(scene)
@@ -173,12 +176,50 @@ def test_leaving_the_table_stops_the_music(tmp_path, monkeypatch):
     assert stopped == [True]
 
 
-@pytest.mark.xfail(strict=True, reason="load_scores silently returns an empty table for a "
-                                       "corrupt file; fail-fast says it should raise "
-                                       "(TODO in high_score_scene.load_scores)")
-def test_corrupt_scores_file_behavior(tmp_path, monkeypatch):
+def test_corrupt_scores_file_raises_and_is_left_untouched(tmp_path):
     scores_file = tmp_path / "scores.dat"
     scores_file.write_text("{not json")
-    monkeypatch.setattr(high_score_scene, "SCORES_FILE", str(scores_file))
-    with pytest.raises(ValueError):
-        high_score_scene.load_scores()
+    with pytest.raises(CorruptScoresError, match="not valid JSON"):
+        ScoreRepository(str(scores_file)).load()
+    assert scores_file.read_text() == "{not json"
+
+
+@pytest.mark.parametrize("table, reason", [
+    ({"name": "AAA", "score": 1}, "not a list"),
+    ([{"name": "AAA"}], "is not {name, score}"),
+    ([{"name": "AAA", "score": 1, "extra": 2}], "is not {name, score}"),
+    ([{"name": "a~a", "score": 1}], "letters outside"),
+    ([{"name": 7, "score": 1}], "letters outside"),
+    ([{"name": "AAA", "score": "100"}], "non-negative integer"),
+    ([{"name": "AAA", "score": -5}], "non-negative integer"),
+    ([{"name": "AAA", "score": True}], "non-negative integer"),
+])
+def test_a_scores_file_that_is_not_a_valid_table_raises(tmp_path, table, reason):
+    scores_file = tmp_path / "scores.dat"
+    scores_file.write_text(json.dumps(table))
+    with pytest.raises(CorruptScoresError, match=reason):
+        ScoreRepository(str(scores_file)).load()
+
+
+def test_save_refuses_an_invalid_table(tmp_path):
+    scores_file = tmp_path / "scores.dat"
+    with pytest.raises(CorruptScoresError):
+        ScoreRepository(str(scores_file)).save([{"name": "AAA", "score": -1}])
+    assert not scores_file.exists()
+
+
+def test_the_high_score_scene_raises_on_a_corrupt_file(tmp_path, monkeypatch):
+    (tmp_path / "scores.dat").write_text("[1, 2]")  # entry_scene points SCORES_FILE here
+    with pytest.raises(CorruptScoresError):
+        entry_scene(tmp_path, monkeypatch, final_score=100)
+
+
+def test_an_injected_repository_is_used_for_load_and_save(tmp_path):
+    import pygame
+    pygame.init()
+    pygame.display.set_mode((1, 1))
+    repository = ScoreRepository(str(tmp_path / "elsewhere.dat"))
+    scene = high_score_scene.HighScoreScene(None, 20000, score_repository=repository)
+    for _ in range(INITIALS_LENGTH):
+        press(scene, Action.JUMP)
+    assert repository.load()[0] == {"name": "AAA", "score": 20000}

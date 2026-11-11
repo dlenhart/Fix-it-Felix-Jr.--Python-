@@ -9,12 +9,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 import pygame  # noqa: E402
 import pytest  # noqa: E402
 
-from camera import Camera  # noqa: E402
-from entities.building import Building  # noqa: E402
+from core.camera import Camera  # noqa: E402
+from world.building import Building  # noqa: E402
 from entities.felix import Felix  # noqa: E402
 from entities.nicelander import Nicelander  # noqa: E402
 from entities.pie import Pie  # noqa: E402
-from sprite_sheet import SpriteSheet  # noqa: E402
+from graphics.sprite_sheet import SpriteSheet  # noqa: E402
 
 
 @pytest.fixture(scope="module", autouse=True)

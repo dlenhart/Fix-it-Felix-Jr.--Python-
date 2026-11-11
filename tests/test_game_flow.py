@@ -13,19 +13,22 @@ import pygame  # noqa: E402
 pygame.init()
 pygame.display.set_mode((1, 1))
 
-from constants import GAME_HEIGHT, GAME_WIDTH, INVULNERABLE_TICKS  # noqa: E402
-from input_handler import Action  # noqa: E402
-from level_config import get_level_config  # noqa: E402
-from scene_manager import SceneManager  # noqa: E402
+from constants.display import GAME_HEIGHT, GAME_WIDTH  # noqa: E402
+from constants.felix import INVULNERABLE_TICKS  # noqa: E402
+from controls.action import Action  # noqa: E402
+from world.level_config import get_level_config  # noqa: E402
+from core.scene_manager import SceneManager  # noqa: E402
 from scenes.game_over_scene import GameOverScene  # noqa: E402
-from entities.felix import FelixState  # noqa: E402
-from entities.ralph import RalphState  # noqa: E402
-from scenes.game_phases import (  # noqa: E402
-    READY_PAUSE_TICKS, SECTION_SCROLL_SPEED,
-    LevelEndPhase, LevelStartPhase, PlayPhase, SectionClearPhase,
-)
-from scenes.game_scene import GameScene, start_level_from_environment  # noqa: E402
-from scenes.roof_phases import GameEndPhase, RoofPhase  # noqa: E402
+from entities.felix_state import FelixState  # noqa: E402
+from entities.ralph_state import RalphState  # noqa: E402
+from constants.phases import READY_PAUSE_TICKS, SECTION_SCROLL_SPEED  # noqa: E402
+from scenes.game.phases.level_end_phase import LevelEndPhase  # noqa: E402
+from scenes.game.phases.level_start_phase import LevelStartPhase  # noqa: E402
+from scenes.game.phases.play_phase import PlayPhase  # noqa: E402
+from scenes.game.phases.section_clear_phase import SectionClearPhase  # noqa: E402
+from scenes.game.game_scene import GameScene, start_level_from_environment  # noqa: E402
+from scenes.game.phases.game_end_phase import GameEndPhase  # noqa: E402
+from scenes.game.phases.roof_phase import RoofPhase  # noqa: E402
 
 TICK_LIMIT = 5000
 
@@ -218,7 +221,7 @@ def test_last_section_goes_to_level_end_then_next_level_keeps_lives_and_score():
         tick_until(game, lambda: isinstance(game.phase, (PlayPhase, LevelEndPhase)))
     assert isinstance(game.phase, LevelEndPhase)
 
-    tick_until(game, lambda: game.level == 2)
+    tick_until(game, lambda: game.session.level == 2)
     assert isinstance(game.phase, LevelStartPhase)
     assert game.building.section_index == 0
     assert game.camera.scroll_y == 0
@@ -236,7 +239,7 @@ def test_last_section_skips_the_section_clear_and_waits_for_the_roof():
     game.tick(MockInput())
     assert isinstance(game.phase, LevelEndPhase)
     tick_until(game, lambda: isinstance(game.phase, RoofPhase))
-    assert game.level == 1
+    assert game.session.level == 1
 
 
 def hammer_for(game, tick_count):
@@ -587,7 +590,7 @@ def test_draw_renders_every_phase():
     _, game = make_game()
     surface = pygame.Surface((GAME_WIDTH, GAME_HEIGHT))
     game.felix.lives = 12
-    game.is_end_game_requested = True
+    game.session.is_end_game_requested = True
     seen_phases = set()
     game.draw(surface, alpha=0.5)
     reach_play(game)
@@ -625,10 +628,37 @@ def test_start_level_rejects_bad_values(monkeypatch, raw_level):
 def test_a_game_starting_past_the_config_table_plays_on_with_the_level_10_config(monkeypatch):
     monkeypatch.setenv("FELIX_START_LEVEL", "11")
     _, game = make_game()
-    assert game.level == 11
-    assert get_level_config(game.level) == get_level_config(10)
+    assert game.session.level == 11
+    assert get_level_config(game.session.level) == get_level_config(10)
     reach_play(game)
     for _ in range(600):
         game.tick(MockInput())
     assert isinstance(game.phase, (PlayPhase, SectionClearPhase, LevelEndPhase))
-    assert get_level_config(game.level) == get_level_config(10)
+    assert get_level_config(game.session.level) == get_level_config(10)
+
+
+def test_start_level_returns_the_level_start_phase_without_installing_it():
+    _, game = make_game()
+    reach_play(game)
+    play_phase = game.phase
+    next_phase = game.start_level(2)
+    assert isinstance(next_phase, LevelStartPhase)
+    assert game.phase is play_phase
+    assert game.session.level == 2
+
+
+def test_the_session_survives_a_level_change():
+    _, game = make_game()
+    reach_play(game)
+    session, schedule = game.session, game.session.drop_hazard_schedule
+    frame_counter = session.frame_counter
+    game.phase = game.start_level(2)
+    assert game.session is session and session.drop_hazard_schedule is schedule
+    assert session.frame_counter == frame_counter
+
+
+def test_enter_play_starts_the_patrol_and_returns_play():
+    _, game = make_game()
+    tick_until(game, lambda: isinstance(game.phase, LevelStartPhase) and game.phase.is_ready_countdown)
+    assert isinstance(game.enter_play(), PlayPhase)
+    assert game.ralph.is_patrolling

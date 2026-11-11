@@ -11,11 +11,12 @@ import pygame  # noqa: E402
 pygame.init()
 pygame.display.set_mode((1, 1))
 
-from constants import GAME_HEIGHT, GAME_WIDTH  # noqa: E402
-from input_handler import Action  # noqa: E402
-from scene_manager import SceneManager  # noqa: E402
-from scenes.game_phases import LevelStartPhase, PlayPhase  # noqa: E402
-from scenes.game_scene import GameScene  # noqa: E402
+from constants.display import GAME_HEIGHT, GAME_WIDTH  # noqa: E402
+from controls.action import Action  # noqa: E402
+from core.scene_manager import SceneManager  # noqa: E402
+from scenes.game.phases.level_start_phase import LevelStartPhase  # noqa: E402
+from scenes.game.phases.play_phase import PlayPhase  # noqa: E402
+from scenes.game.game_scene import GameScene  # noqa: E402
 
 
 class MockInput:
